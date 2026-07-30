@@ -26,6 +26,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SmartPlagiarism.Core\SmartPlagiarism.Core.csproj" />
     <ProjectReference Include="..\..\src\SmartPlagiarism.Engine\SmartPlagiarism.Engine.csproj" />
+    <ProjectReference Include="..\..\src\SmartPlagiarism.Infrastructure\SmartPlagiarism.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

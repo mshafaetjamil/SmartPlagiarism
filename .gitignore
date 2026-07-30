@@ -481,6 +481,10 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
+# Uploaded documents. Content-addressed blobs written at runtime by
+# LocalFileStorageService - never source, and potentially student coursework.
+App_Data/
+
 # macOS installers and disk images. The template covers Windows installers
 # (*.msi, *.cab) but not these. Downloading something like Docker.dmg into the
 # project folder is easy to do by accident, and it is far past GitHub's 100 MB

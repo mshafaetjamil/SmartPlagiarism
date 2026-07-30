@@ -2,10 +2,13 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using SmartPlagiarism.Core.Abstractions;
+using SmartPlagiarism.Core.Files;
 using SmartPlagiarism.Core.Identity;
 using SmartPlagiarism.Infrastructure.Data;
 using SmartPlagiarism.Infrastructure.Services;
+using SmartPlagiarism.Infrastructure.Storage;
 
 namespace SmartPlagiarism.Infrastructure;
 
@@ -34,8 +37,21 @@ public static class DependencyInjection
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();
 
+        // Relative paths are resolved against the content root here, once, so the
+        // storage service only ever deals with an absolute path.
+        services.AddOptions<FileStorageOptions>()
+            .Bind(configuration.GetSection(FileStorageOptions.SectionName))
+            .PostConfigure<IHostEnvironment>((options, environment) =>
+                options.RootPath = Path.GetFullPath(options.RootPath, environment.ContentRootPath))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddSingleton<IFileUploadValidator, FileUploadValidator>();
+        services.AddSingleton<IFileStorageService, LocalFileStorageService>();
+
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<ISubmissionService, SubmissionService>();
 
         return services;
     }

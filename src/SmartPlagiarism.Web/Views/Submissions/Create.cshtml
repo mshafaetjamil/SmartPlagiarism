@@ -1,0 +1,81 @@
+@using SmartPlagiarism.Core.Files
+@model SmartPlagiarism.Web.Models.Submissions.CreateSubmissionViewModel
+@{
+    ViewData["Title"] = "New submission";
+    var acceptList = string.Join(",", AllowedFileFormats.All.Select(format => format.Extension));
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <h1 class="h3 mb-4">New submission</h1>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <form asp-action="Create" method="post" enctype="multipart/form-data">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="Title" class="form-label"></label>
+                            <input asp-for="Title" class="form-control" autofocus />
+                            <span asp-validation-for="Title" class="text-danger small"></span>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="CourseId" class="form-label"></label>
+                                <select asp-for="CourseId" class="form-select">
+                                    <option value="">Choose a course...</option>
+                                    @foreach (var course in Model.Courses)
+                                    {
+                                        <option value="@course.Id">@course.Code &ndash; @course.Title</option>
+                                    }
+                                </select>
+                                <span asp-validation-for="CourseId" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="SemesterId" class="form-label"></label>
+                                <select asp-for="SemesterId" class="form-select">
+                                    <option value="">Choose a semester...</option>
+                                    @foreach (var semester in Model.Semesters)
+                                    {
+                                        <option value="@semester.Id">@semester.Name</option>
+                                    }
+                                </select>
+                                <span asp-validation-for="SemesterId" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Type" class="form-label"></label>
+                            <select asp-for="Type" class="form-select"
+                                    asp-items="Html.GetEnumSelectList<SmartPlagiarism.Core.Enums.SubmissionType>()"></select>
+                            <span asp-validation-for="Type" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Files" class="form-label"></label>
+                            <input asp-for="Files" type="file" class="form-control" multiple accept="@acceptList" />
+                            <div class="form-text">
+                                @AllowedFileFormats.DisplayList only.
+                                Up to @UploadConstraints.MaxFilesPerSubmission files,
+                                @(UploadConstraints.MaxFileSizeBytes / (1024 * 1024)) MB each.
+                            </div>
+                            <span asp-validation-for="Files" class="text-danger small"></span>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">Submit</button>
+                            <a class="btn btn-outline-secondary" asp-action="Index">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
