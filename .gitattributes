@@ -1,0 +1,49 @@
+# Normalise line endings across macOS, Linux and Windows checkouts.
+#
+# Without this, Git on Windows defaults to core.autocrlf=true and rewrites every
+# file to CRLF on checkout, which contradicts .editorconfig (end_of_line = lf),
+# makes files show as modified straight after a clone, and fills diffs with noise
+# when the same repo is used from two machines.
+#
+# Text is stored as LF in the repository and checked out as LF everywhere.
+* text=auto eol=lf
+
+# Source and project files
+*.cs        text eol=lf diff=csharp
+*.cshtml    text eol=lf
+*.csproj    text eol=lf
+*.sln       text eol=crlf
+*.props     text eol=lf
+*.targets   text eol=lf
+*.json      text eol=lf
+*.xml       text eol=lf
+*.config    text eol=lf
+*.md        text eol=lf
+*.css       text eol=lf
+*.js        text eol=lf
+*.yml       text eol=lf
+*.sh        text eol=lf
+
+# Windows-native scripts must keep CRLF or they misbehave when run
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# Binary: never touch these
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.docx      binary
+*.pptx      binary
+*.xlsx      binary
+*.zip       binary
+*.dll       binary
+*.exe       binary
+*.pdb       binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.traineddata binary
