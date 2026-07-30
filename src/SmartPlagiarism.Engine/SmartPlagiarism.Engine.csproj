@@ -4,6 +4,12 @@
     <RootNamespace>SmartPlagiarism.Engine</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
+    <PackageReference Include="PdfPig" Version="0.1.15" />
+    <PackageReference Include="Tesseract" Version="5.2.0" />
+  </ItemGroup>
+
   <!--
     ARCHITECTURE RULE (CLAUDE.md): this project must never reference ASP.NET Core,
     EF Core, or any other project in this solution - only the BCL and its own

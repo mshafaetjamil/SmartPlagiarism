@@ -3,9 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.Files;
 using SmartPlagiarism.Core.Identity;
+using SmartPlagiarism.Engine.Extraction;
+using SmartPlagiarism.Engine.Ocr;
 using SmartPlagiarism.Infrastructure.Data;
 using SmartPlagiarism.Infrastructure.Services;
 using SmartPlagiarism.Infrastructure.Storage;
@@ -49,10 +52,43 @@ public static class DependencyInjection
         services.AddSingleton<IFileUploadValidator, FileUploadValidator>();
         services.AddSingleton<IFileStorageService, LocalFileStorageService>();
 
+        AddTextExtraction(services, configuration);
+
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<ISubmissionService, SubmissionService>();
+        services.AddScoped<IExtractionService, ExtractionService>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Wires up the Engine. It has no dependency-injection package of its own - by
+    /// design, since CLAUDE.md keeps it to the BCL and its parsing libraries - so
+    /// its types are registered here.
+    /// </summary>
+    private static void AddTextExtraction(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<OcrOptions>()
+            .Bind(configuration.GetSection("Ocr"))
+            .PostConfigure<IHostEnvironment>((options, environment) =>
+            {
+                if (!string.IsNullOrWhiteSpace(options.TessDataPath))
+                {
+                    options.TessDataPath = Path.GetFullPath(options.TessDataPath, environment.ContentRootPath);
+                }
+            });
+
+        // Singleton: TesseractOcrService probes for the native library once and
+        // holds a single engine instance, serialising access internally.
+        services.AddSingleton<IOcrService>(provider =>
+            new TesseractOcrService(provider.GetRequiredService<IOptions<OcrOptions>>().Value));
+
+        services.AddSingleton<ITextExtractor, PdfTextExtractor>();
+        services.AddSingleton<ITextExtractor, DocxTextExtractor>();
+        services.AddSingleton<ITextExtractor, PptxTextExtractor>();
+
+        services.AddSingleton<IExtractorFactory>(provider =>
+            new ExtractorFactory(provider.GetServices<ITextExtractor>()));
     }
 }

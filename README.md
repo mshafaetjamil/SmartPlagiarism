@@ -4,6 +4,9 @@ A plagiarism detection system for academic reports (PDF/DOCX) and presentations
 (PPTX/PDF), with Student / Teacher / Admin roles, a standalone similarity engine,
 and a versioned REST API for university-portal integration.
 
+**New here?** [SETUP.md](SETUP.md) has step-by-step instructions for Windows,
+macOS and Linux, from installing prerequisites through to signing in.
+
 See [CLAUDE.md](CLAUDE.md) for the architecture rules this project is built to.
 
 ## Solution layout
@@ -57,6 +60,43 @@ startup:
 | Admin | admin@uni.edu | `Admin#123` |
 | Teacher | teacher@uni.edu | `Teacher#123` |
 | Student | student@uni.edu | `Student#123` |
+
+## OCR (optional)
+
+Text extraction reads the text layer of PDFs, DOCX and PPTX files directly. A PDF
+page carrying fewer than ~20 characters — a scan, in other words — is handed to
+Tesseract instead.
+
+**OCR is entirely optional.** Without it the app still extracts text from every
+document that has a text layer; scanned pages simply come back empty with a
+warning naming the reason. Nothing crashes and no analysis fails.
+
+To enable it, put the English language data where `Ocr:TessDataPath` points
+(`src/SmartPlagiarism.Web/App_Data/tessdata` by default):
+
+```bash
+mkdir -p src/SmartPlagiarism.Web/App_Data/tessdata
+curl -L -o src/SmartPlagiarism.Web/App_Data/tessdata/eng.traineddata \
+  https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
+```
+
+`tessdata_fast` is the smaller, quicker model and is the right default here. Swap
+`tessdata_fast` for `tessdata_best` if you would rather have accuracy than speed,
+or `tessdata` for the legacy models.
+
+Configuration lives under `Ocr` in `appsettings.json`:
+
+| Setting | Meaning |
+| --- | --- |
+| `Enabled` | Set `false` to skip OCR even when the language data is present |
+| `TessDataPath` | Directory holding the `.traineddata` files, relative to the content root |
+| `Language` | Language code; must match a `{Language}.traineddata` file |
+
+**Native library note.** The `Tesseract` NuGet package ships native binaries for
+Windows and Linux only — there is no macOS build. On a Mac the engine reports OCR
+as unavailable and carries on; the reason is logged at startup and recorded
+against each affected page. Extraction of PDFs, DOCX and PPTX with real text
+layers is unaffected.
 
 ## Entity Framework
 

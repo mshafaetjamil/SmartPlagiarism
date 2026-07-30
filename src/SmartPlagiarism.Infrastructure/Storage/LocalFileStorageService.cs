@@ -29,10 +29,53 @@ public class LocalFileStorageService : IFileStorageService
     {
         _validator = validator;
         _logger = logger;
-        _rootPath = options.Value.RootPath;
+        _rootPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.Value.RootPath));
 
         GuardAgainstWebRoot(_rootPath);
         Directory.CreateDirectory(_rootPath);
+    }
+
+    public Task<Stream> OpenReadAsync(string storagePath, CancellationToken cancellationToken = default)
+    {
+        var absolutePath = ResolveWithinRoot(storagePath);
+
+        if (!File.Exists(absolutePath))
+        {
+            throw new FileNotFoundException($"No stored file at '{storagePath}'.", absolutePath);
+        }
+
+        Stream stream = new FileStream(
+            absolutePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 64 * 1024,
+            useAsync: true);
+
+        return Task.FromResult(stream);
+    }
+
+    /// <summary>
+    /// Turns a stored relative path into an absolute one, refusing anything that
+    /// escapes the storage root. Paths come from the database rather than from a
+    /// request, but a traversal sequence reaching this far should still be stopped
+    /// rather than trusted.
+    /// </summary>
+    private string ResolveWithinRoot(string storagePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(storagePath);
+
+        var candidate = Path.GetFullPath(Path.Combine(
+            _rootPath,
+            storagePath.Replace('/', Path.DirectorySeparatorChar)));
+
+        if (!candidate.StartsWith(_rootPath + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+        {
+            throw new UnauthorizedAccessException(
+                $"Storage path '{storagePath}' resolves outside the storage root.");
+        }
+
+        return candidate;
     }
 
     public async Task<StoredFile> StoreAsync(FileUpload file, CancellationToken cancellationToken = default)
