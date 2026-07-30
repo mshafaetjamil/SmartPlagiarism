@@ -1,0 +1,71 @@
+@{
+    ViewData["Title"] = "Home";
+}
+
+<section class="hero border-bottom">
+    <div class="container py-5">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-7">
+                <h1 class="display-5 fw-bold mb-3">Originality checking for student work</h1>
+                <p class="lead text-body-secondary mb-4">
+                    SmartPlagiarism compares submitted reports and presentations against
+                    everything previously submitted to your institution, and gives teachers
+                    a similarity score they can act on.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary btn-lg" asp-controller="Home" asp-action="About">How it works</a>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h2 class="h6 text-uppercase text-body-secondary mb-3">Supported uploads</h2>
+                        <ul class="list-unstyled mb-0 d-grid gap-2">
+                            <li><span class="badge text-bg-secondary me-2">PDF</span>Reports and slide exports</li>
+                            <li><span class="badge text-bg-secondary me-2">DOCX</span>Word reports</li>
+                            <li><span class="badge text-bg-secondary me-2">PPTX</span>PowerPoint presentations</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="container py-5">
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <h2 class="h5 card-title">Students</h2>
+                    <p class="card-text text-body-secondary mb-0">
+                        Submit coursework, track review status, and see the originality
+                        result once the analysis finishes.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <h2 class="h5 card-title">Teachers</h2>
+                    <p class="card-text text-body-secondary mb-0">
+                        Review submissions with matched passages highlighted side by side,
+                        then approve or reject with a comment.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <h2 class="h5 card-title">Administrators</h2>
+                    <p class="card-text text-body-secondary mb-0">
+                        Manage departments, courses and accounts, and monitor
+                        system-wide submission statistics.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

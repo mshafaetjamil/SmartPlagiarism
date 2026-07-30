@@ -1,0 +1,46 @@
+@{
+    ViewData["Title"] = "About";
+}
+
+<div class="container py-5">
+    <div class="row">
+        <div class="col-lg-8">
+            <h1 class="h2 mb-4">How SmartPlagiarism works</h1>
+
+            <ol class="list-group list-group-numbered list-group-flush mb-4">
+                <li class="list-group-item px-0">
+                    <span class="fw-semibold">Upload.</span>
+                    A student submits a report or presentation. The file is validated,
+                    hashed with SHA-256 and stored outside the web root.
+                </li>
+                <li class="list-group-item px-0">
+                    <span class="fw-semibold">Extract.</span>
+                    Text is pulled from the document once, at upload time, using native
+                    parsers with an OCR fallback for scanned pages.
+                </li>
+                <li class="list-group-item px-0">
+                    <span class="fw-semibold">Fingerprint.</span>
+                    The extracted text is reduced to n-gram fingerprints so candidate
+                    matches can be shortlisted without comparing every pair in full.
+                </li>
+                <li class="list-group-item px-0">
+                    <span class="fw-semibold">Analyse.</span>
+                    A background worker scores the submission against the shortlist and
+                    records the matched passages.
+                </li>
+                <li class="list-group-item px-0">
+                    <span class="fw-semibold">Review.</span>
+                    The teacher sees the similarity score and matched fragments, then
+                    approves or rejects the submission.
+                </li>
+            </ol>
+
+            <h2 class="h5">Integration</h2>
+            <p class="text-body-secondary">
+                A versioned REST API is exposed under <code>/api/v1</code> so an existing
+                university portal can submit documents and read results without using this
+                web interface.
+            </p>
+        </div>
+    </div>
+</div>

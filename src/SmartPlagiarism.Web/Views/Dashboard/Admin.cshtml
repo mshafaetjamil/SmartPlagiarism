@@ -1,0 +1,103 @@
+@model SmartPlagiarism.Core.DTOs.Dashboards.AdminDashboardDto
+@{
+    ViewData["Title"] = "Admin dashboard";
+
+    string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        double size = bytes;
+        var unit = 0;
+
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return $"{size:0.##} {units[unit]}";
+    }
+}
+
+<div class="container py-4">
+    <h1 class="h3 mb-4">Admin dashboard</h1>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="text-body-secondary small text-uppercase">Users</div>
+                    <div class="display-6">@Model.TotalUsers</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="text-body-secondary small text-uppercase">Submissions</div>
+                    <div class="display-6">@Model.TotalSubmissions</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="text-body-secondary small text-uppercase">Stored files</div>
+                    <div class="display-6">@Model.TotalUploadedFiles</div>
+                    <div class="text-body-secondary small">@FormatBytes(Model.TotalStoredBytes)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="text-body-secondary small text-uppercase">Average similarity</div>
+                    <div class="display-6">
+                        @(Model.AverageSimilarityPercent.HasValue
+                            ? $"{Model.AverageSimilarityPercent.Value:0.00}%"
+                            : "-")
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h2 class="h6 mb-0">Users by role</h2>
+                </div>
+                <table class="table mb-0 align-middle">
+                    <tbody>
+                        @foreach (var roleCount in Model.UsersByRole)
+                        {
+                            <tr>
+                                <td>@roleCount.Role</td>
+                                <td class="text-end fw-semibold">@roleCount.UserCount</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h2 class="h6 mb-0">Submissions by analysis status</h2>
+                </div>
+                <table class="table mb-0 align-middle">
+                    <tbody>
+                        @foreach (var statusCount in Model.SubmissionsByAnalysisStatus)
+                        {
+                            <tr>
+                                <td>@statusCount.Status</td>
+                                <td class="text-end fw-semibold">@statusCount.Count</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

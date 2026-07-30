@@ -1,0 +1,89 @@
+@model SmartPlagiarism.Core.DTOs.Dashboards.StudentDashboardDto
+@{
+    ViewData["Title"] = "My dashboard";
+}
+
+<div class="container py-4">
+    <h1 class="h3 mb-4">My dashboard</h1>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="text-body-secondary small text-uppercase">Submissions</div>
+                    <div class="display-6">@Model.TotalSubmissions</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="text-body-secondary small text-uppercase">Being analysed</div>
+                    <div class="display-6">@Model.AwaitingAnalysis</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="text-body-secondary small text-uppercase">Awaiting review</div>
+                    <div class="display-6">@Model.PendingReview</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="text-body-secondary small text-uppercase">Approved</div>
+                    <div class="display-6">@Model.Approved</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent">
+            <h2 class="h6 mb-0">Latest submissions</h2>
+        </div>
+        @if (Model.LatestSubmissions.Count == 0)
+        {
+            <div class="card-body text-body-secondary">
+                You have not submitted anything yet.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Title</th>
+                            <th scope="col">Course</th>
+                            <th scope="col">Submitted</th>
+                            <th scope="col">Analysis</th>
+                            <th scope="col">Review</th>
+                            <th scope="col" class="text-end">Similarity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var submission in Model.LatestSubmissions)
+                        {
+                            <tr>
+                                <td>@submission.Title</td>
+                                <td>@submission.CourseCode</td>
+                                <td>@submission.SubmittedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                                <td>@submission.AnalysisStatus</td>
+                                <td>@submission.Status</td>
+                                <td class="text-end">
+                                    @(submission.OverallSimilarityPercent.HasValue
+                                        ? $"{submission.OverallSimilarityPercent.Value:0.00}%"
+                                        : "-")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

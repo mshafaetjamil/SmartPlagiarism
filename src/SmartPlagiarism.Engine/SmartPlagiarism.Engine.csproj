@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>SmartPlagiarism.Engine</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    ARCHITECTURE RULE (CLAUDE.md): this project must never reference ASP.NET Core,
+    EF Core, or any other project in this solution - only the BCL and its own
+    document-parsing NuGet packages. EngineIsolationTests enforces this at build time.
+  -->
+
+</Project>

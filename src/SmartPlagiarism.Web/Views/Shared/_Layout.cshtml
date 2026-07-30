@@ -1,0 +1,90 @@
+@using SmartPlagiarism.Core.Identity
+@{
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+
+    string NavClass(string forController, string forAction) =>
+        controller == forController && action == forAction ? "nav-link active" : "nav-link";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] &ndash; SmartPlagiarism</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/SmartPlagiarism.Web.styles.css" asp-append-version="true" />
+</head>
+<body class="d-flex flex-column min-vh-100">
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+            <div class="container">
+                <a class="navbar-brand d-flex align-items-center gap-2" asp-controller="Home" asp-action="Index">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true" focusable="false">
+                        <path d="M12 2 4 5.5v6c0 4.6 3.4 8.9 8 10.5 4.6-1.6 8-5.9 8-10.5v-6L12 2Z" />
+                        <path d="m9.5 11.5 1.8 1.8 3.6-3.6" />
+                    </svg>
+                    <span class="fw-semibold">SmartPlagiarism</span>
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#primaryNav" aria-controls="primaryNav"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="primaryNav">
+                    <ul class="navbar-nav mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <a class="@NavClass("Home", "Index")" asp-controller="Home" asp-action="Index">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="@NavClass("Home", "About")" asp-controller="Home" asp-action="About">About</a>
+                        </li>
+
+                        @* Each role sees only the dashboard it is authorized for. *@
+                        @if (User.IsInRole(ApplicationRoles.Admin))
+                        {
+                            <li class="nav-item">
+                                <a class="@NavClass("Dashboard", "Admin")" asp-controller="Dashboard" asp-action="Admin">Admin dashboard</a>
+                            </li>
+                        }
+                        else if (User.IsInRole(ApplicationRoles.Teacher))
+                        {
+                            <li class="nav-item">
+                                <a class="@NavClass("Dashboard", "Teacher")" asp-controller="Dashboard" asp-action="Teacher">Teacher dashboard</a>
+                            </li>
+                        }
+                        else if (User.IsInRole(ApplicationRoles.Student))
+                        {
+                            <li class="nav-item">
+                                <a class="@NavClass("Dashboard", "Student")" asp-controller="Dashboard" asp-action="Student">My dashboard</a>
+                            </li>
+                        }
+                    </ul>
+
+                    <partial name="_LoginPartial" />
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main role="main" class="flex-grow-1">
+        @RenderBody()
+    </main>
+
+    <footer class="border-top bg-body-tertiary py-3 mt-auto">
+        <div class="container d-flex flex-wrap justify-content-between small text-body-secondary">
+            <span>&copy; @DateTime.UtcNow.Year SmartPlagiarism</span>
+            <span>Final-year CSE project</span>
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

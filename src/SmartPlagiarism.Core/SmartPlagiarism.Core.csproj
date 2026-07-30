@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>SmartPlagiarism.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SmartPlagiarism.Engine\SmartPlagiarism.Engine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Identity.Stores (rather than AspNetCore.Identity) gives Core the IdentityUser
+      base type for ApplicationUser without pulling ASP.NET Core hosting into Core.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Identity.Stores" Version="10.0.10" />
+  </ItemGroup>
+
+</Project>

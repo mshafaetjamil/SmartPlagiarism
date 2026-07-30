@@ -1,0 +1,5 @@
+/* Styles scoped to _Layout.cshtml. */
+
+a.navbar-brand {
+    white-space: nowrap;
+}

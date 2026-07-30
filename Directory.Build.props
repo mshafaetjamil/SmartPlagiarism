@@ -1,0 +1,16 @@
+<Project>
+
+  <!--
+    Settings shared by every project in the solution. Keeping the target
+    framework here means a future framework bump is a one-line change instead
+    of five.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>
