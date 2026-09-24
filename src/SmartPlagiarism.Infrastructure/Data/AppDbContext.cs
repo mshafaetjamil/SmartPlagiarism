@@ -41,6 +41,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

@@ -9,4 +9,5 @@ public static class AuditEntityTypes
     public const string Department = "Department";
     public const string Course = "Course";
     public const string Semester = "Semester";
+    public const string ApiKey = "ApiKey";
 }

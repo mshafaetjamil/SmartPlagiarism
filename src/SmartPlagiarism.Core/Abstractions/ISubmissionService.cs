@@ -33,7 +33,23 @@ public interface ISubmissionService
         string userId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// One submission, or null when it does not exist or the viewer may not see
+    /// it - checked with <see cref="ISubmissionAccessService"/>. Serves the web
+    /// page and the REST API alike.
+    /// </summary>
+    Task<SubmissionDetailDto?> GetDetailAsync(
+        int submissionId,
+        SubmissionViewer viewer,
+        CancellationToken cancellationToken = default);
+
     Task<SubmissionFormOptionsDto> GetFormOptionsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The account of the student with this number, or null - how the REST API
+    /// turns the portal's student number into the student a submission is for.
+    /// </summary>
+    Task<string?> FindStudentUserIdAsync(string studentNumber, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Analysis status of the requested submissions that belong to this student.

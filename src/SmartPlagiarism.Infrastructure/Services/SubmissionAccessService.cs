@@ -23,7 +23,11 @@ public class SubmissionAccessService : ISubmissionAccessService
 
         var submissions = _context.Submissions.AsNoTracking().Where(submission => submission.Id == submissionId);
 
-        if (!viewer.IsStaff)
+        if (viewer.ApiKeyId is { } apiKeyId)
+        {
+            submissions = submissions.Where(submission => submission.ApiKeyId == apiKeyId);
+        }
+        else if (!viewer.IsStaff)
         {
             // Ownership is part of the query, as everywhere a student reads a
             // submission: another student's id is simply not found.

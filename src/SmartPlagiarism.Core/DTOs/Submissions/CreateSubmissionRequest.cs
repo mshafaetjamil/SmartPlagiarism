@@ -10,7 +10,8 @@ public sealed record CreateSubmissionRequest(
     SubmissionType Type,
     int CourseId,
     int SemesterId,
-    IReadOnlyList<FileUpload> Files);
+    IReadOnlyList<FileUpload> Files,
+    int? ApiKeyId = null);
 
 /// <summary>
 /// Outcome of a create attempt. Failures carry every problem found, so the student

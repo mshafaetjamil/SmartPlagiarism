@@ -1,0 +1,25 @@
+@model SmartPlagiarism.Core.Abstractions.CreatedApiKey
+@{
+    ViewData["Title"] = "API key created";
+}
+
+<div class="container py-4" style="max-width: 760px;">
+    <h1 class="h3 mb-3">Key created for @Model.Name</h1>
+
+    <div class="alert alert-warning" role="alert">
+        Copy this key now. It is shown only once and cannot be retrieved later - only a hash of it is stored.
+        If it is lost, revoke it and create another.
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <label for="api-key" class="form-label small">API key</label>
+            <input id="api-key" class="form-control font-monospace" value="@Model.Key" readonly onclick="this.select()" />
+            <p class="small text-body-secondary mt-2 mb-0">
+                Send it in the <code>X-Api-Key</code> header of every request to <code>/api/v1</code>.
+            </p>
+        </div>
+    </div>
+
+    <a asp-action="Index" class="btn btn-primary">Done</a>
+</div>

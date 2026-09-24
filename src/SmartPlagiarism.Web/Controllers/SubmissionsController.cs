@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.DTOs.Submissions;
 using SmartPlagiarism.Core.Files;
+using SmartPlagiarism.Web.Models;
 using SmartPlagiarism.Core.Identity;
 using SmartPlagiarism.Web.Authorization;
 using SmartPlagiarism.Web.Models.Analysis;
@@ -57,51 +58,32 @@ public class SubmissionsController : Controller
             return View(await BuildFormAsync(model, cancellationToken));
         }
 
-        // Mapping IFormFile to Core's transport type. The streams stay open only for
-        // the duration of the call, and this controller does no file IO itself.
-        var streams = new List<Stream>(model.Files.Count);
+        // The streams stay open only for the duration of the call, and this
+        // controller does no file IO itself.
+        await using var files = FormFileUploads.Open(model.Files);
 
-        try
+        var result = await _submissionService.CreateAsync(
+            new CreateSubmissionRequest(
+                CurrentUserId,
+                model.Title,
+                model.Type,
+                model.CourseId,
+                model.SemesterId,
+                files.Uploads),
+            cancellationToken);
+
+        if (!result.Succeeded)
         {
-            var uploads = new List<FileUpload>(model.Files.Count);
-
-            foreach (var formFile in model.Files)
+            foreach (var error in result.Errors)
             {
-                var stream = formFile.OpenReadStream();
-                streams.Add(stream);
-                uploads.Add(new FileUpload(formFile.FileName, formFile.Length, stream));
+                ModelState.AddModelError(string.Empty, error);
             }
 
-            var result = await _submissionService.CreateAsync(
-                new CreateSubmissionRequest(
-                    CurrentUserId,
-                    model.Title,
-                    model.Type,
-                    model.CourseId,
-                    model.SemesterId,
-                    uploads),
-                cancellationToken);
-
-            if (!result.Succeeded)
-            {
-                foreach (var error in result.Errors)
-                {
-                    ModelState.AddModelError(string.Empty, error);
-                }
-
-                return View(await BuildFormAsync(model, cancellationToken));
-            }
-
-            TempData["StatusMessage"] = "Submission received. Analysis has been queued.";
-            return RedirectToAction(nameof(Details), new { id = result.SubmissionId });
+            return View(await BuildFormAsync(model, cancellationToken));
         }
-        finally
-        {
-            foreach (var stream in streams)
-            {
-                await stream.DisposeAsync();
-            }
-        }
+
+        TempData["StatusMessage"] = "Submission received. Analysis has been queued.";
+        return RedirectToAction(nameof(Details), new { id = result.SubmissionId });
     }
 
     [HttpGet]

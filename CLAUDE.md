@@ -15,6 +15,8 @@ plagiarism engine, and REST APIs for future university-portal integration.
   PDFtoImage/PDFium (drawing PDF pages for OCR — needed because Bangla PDF text
   layers are routinely damaged)
 - QuestPDF (report generation)
+- REST API: controllers under /api/v1, API-key auth (keys stored hashed),
+  per-key upload rate limit, OpenAPI + Swagger UI in Development only
 - xUnit + FluentAssertions for tests
 
 ## Solution structure

@@ -252,7 +252,34 @@ recorded as a warning against every page it would have read.
 
 ---
 
-## 6. Everyday commands
+## 6. REST API (portal integration)
+
+The university portal can submit work and fetch results over `/api/v1`.
+
+1. Sign in as an admin, open **API keys**, and create a key for the portal.
+   Copy it straight away: it is shown once and only a hash is stored.
+2. Send it in the `X-Api-Key` header of every request.
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| `POST` | `/api/v1/submissions` | Multipart upload (`StudentNumber`, `Title`, `Type`, `CourseId`, `SemesterId`, `Files`). Returns **202** and a `Location` to poll. |
+| `GET` | `/api/v1/submissions/{id}` | Analysis status, and the similarity result once `Completed`. |
+| `GET` | `/api/v1/submissions/{id}/report` | The originality report PDF (the student's copy). **409** until analysis finishes. |
+| `GET` | `/api/v1/health` | Liveness; no key needed. |
+
+```bash
+curl -H "X-Api-Key: spk_..." \
+     -F StudentNumber=2026-CSE-001 -F Title="My report" -F CourseId=1 -F SemesterId=1 \
+     -F Files=@report.docx http://localhost:5028/api/v1/submissions
+```
+
+A key sees only the submissions it created. Uploads are limited per key
+(`Api:UploadsPerMinute` in appsettings.json, default 10) and answer **429**
+beyond that. In Development, the full contract is at **/swagger**.
+
+---
+
+## 7. Everyday commands
 
 ```bash
 dotnet build                                    # compile everything
@@ -269,7 +296,7 @@ dotnet ef database update      -p src/SmartPlagiarism.Infrastructure -s src/Smar
 
 ---
 
-## 7. Working across two machines
+## 8. Working across two machines
 
 1. **Finish on machine A:** `git add -A && git commit && git push`
 2. **Continue on machine B:** `git pull`, then `dotnet run`.
@@ -287,7 +314,7 @@ empty database (with fresh demo accounts) and none of machine A's uploaded files
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Cause and fix |
 | --- | --- |

@@ -28,7 +28,7 @@ public class AnalysisServiceTests
 
         var course = await context.Courses.SingleAsync();
         var semester = await context.Semesters.SingleAsync();
-        var service = new SubmissionService(context, harness.Storage, new FileUploadValidator(), harness.Queue);
+        var service = new SubmissionService(context, harness.Storage, new FileUploadValidator(), harness.Queue, new SubmissionAccessService(context));
 
         var bytes = Docx();
         await using var stream = new MemoryStream(bytes);
@@ -102,7 +102,7 @@ public class AnalysisServiceTests
         var theirs = await harness.SubmitAsOtherStudentAsync(("theirs.docx", Docx()));
 
         await using var context = harness.NewContext();
-        var service = new SubmissionService(context, harness.Storage, new FileUploadValidator(), harness.Queue);
+        var service = new SubmissionService(context, harness.Storage, new FileUploadValidator(), harness.Queue, new SubmissionAccessService(context));
 
         var statuses = await service.GetAnalysisStatusesForStudentAsync(harness.StudentUserId, [mine, theirs]);
 

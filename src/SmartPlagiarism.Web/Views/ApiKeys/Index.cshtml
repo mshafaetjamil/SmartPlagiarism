@@ -1,0 +1,76 @@
+@model IReadOnlyList<SmartPlagiarism.Core.Abstractions.ApiKeyDto>
+@{
+    ViewData["Title"] = "API keys";
+}
+
+<div class="container py-4">
+    <h1 class="h3 mb-1">API keys</h1>
+    <p class="text-body-secondary mb-3">
+        Keys let another system, such as the university portal, use the REST API under <code>/api/v1</code>.
+        A key can read back only the submissions it created.
+    </p>
+
+    <partial name="_StatusMessage" />
+
+    <form method="post" asp-action="Create" class="card border-0 shadow-sm mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-8">
+                <label for="name" class="form-label small mb-1">Who is the key for?</label>
+                <input id="name" name="name" class="form-control" required maxlength="@SmartPlagiarism.Core.Entities.ApiKey.MaxNameLength"
+                       placeholder="Student portal (production)" />
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary w-100">Create key</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="card border-0 shadow-sm">
+        <table class="table mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Key starts with</th>
+                    <th scope="col">Created</th>
+                    <th scope="col">Last used</th>
+                    <th scope="col">Status</th>
+                    <th scope="col"><span class="visually-hidden">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-center text-body-secondary py-4">No keys yet.</td></tr>
+                }
+                @foreach (var key in Model)
+                {
+                    <tr>
+                        <td>@key.Name</td>
+                        <td><code>@key.Prefix&hellip;</code></td>
+                        <td class="small">@key.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                        <td class="small">@(key.LastUsedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "Never")</td>
+                        <td>
+                            @if (key.RevokedAtUtc is { } revoked)
+                            {
+                                <span class="badge text-bg-secondary" title="Revoked @revoked.ToString("yyyy-MM-dd HH:mm") UTC">Revoked</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-success">Active</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            @if (key.RevokedAtUtc is null)
+                            {
+                                <form method="post" asp-action="Revoke" asp-route-id="@key.Id" class="d-inline"
+                                      data-confirm="Revoke the key for @key.Name? Every request using it will be refused.">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

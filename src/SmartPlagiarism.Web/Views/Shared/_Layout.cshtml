@@ -67,6 +67,9 @@
                             <li class="nav-item">
                                 <a class="@NavClass("AuditLog", "Index")" asp-controller="AuditLog" asp-action="Index">Audit log</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="@NavClass("ApiKeys", "Index")" asp-controller="ApiKeys" asp-action="Index">API keys</a>
+                            </li>
                         }
                         else if (User.IsInRole(ApplicationRoles.Teacher))
                         {

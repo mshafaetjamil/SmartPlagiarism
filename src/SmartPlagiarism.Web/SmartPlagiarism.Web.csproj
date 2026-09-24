@@ -15,10 +15,17 @@
       Design-time only. Required because Web is the startup project for the
       `dotnet ef` commands documented in CLAUDE.md; it is not shipped at runtime.
     -->
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <!--
+      Pinned above the 2.0.0 that Microsoft.AspNetCore.OpenApi pulls in, which
+      NuGet audit flags with a high-severity vulnerability (NU1903).
+    -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.12.2" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.2.3" />
   </ItemGroup>
 
 </Project>

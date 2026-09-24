@@ -52,31 +52,16 @@ public class ExtractionService : IExtractionService
             return await FailAsync(file, $"No extractor is registered for '{Path.GetExtension(file.StoragePath)}'.", cancellationToken);
         }
 
+        TextExtractionResult result;
+
+        // Only reading the document is guarded here. A failure saving the text
+        // below is not the file's fault and must not be reported to the student
+        // as a corrupt file; it propagates to the analyzer, which records an
+        // unexpected error that a teacher can re-run.
         try
         {
             await using var document = await _fileStorage.OpenReadAsync(file.StoragePath, cancellationToken);
-
-            var result = await extractor.ExtractAsync(document, cancellationToken);
-
-            var method = MapMethod(result.Method);
-            await PersistAsync(file, result.FullText, result.WordCount, method, result.Warnings, cancellationToken);
-
-            foreach (var warning in result.Warnings)
-            {
-                _logger.LogWarning(
-                    "Extraction warning for uploaded file {UploadedFileId} ({FileName}): {Warning}",
-                    file.Id,
-                    file.OriginalFileName,
-                    warning);
-            }
-
-            _logger.LogInformation(
-                "Extracted {WordCount} words from uploaded file {UploadedFileId} using {Method}.",
-                result.WordCount,
-                file.Id,
-                method);
-
-            return ExtractionOutcome.Success(method, result.WordCount, result.Warnings);
+            result = await extractor.ExtractAsync(document, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -95,6 +80,26 @@ public class ExtractionService : IExtractionService
 
             return await FailAsync(file, "The file could not be read; it may be corrupt or password-protected.", cancellationToken);
         }
+
+        var method = MapMethod(result.Method);
+        await PersistAsync(file, result.FullText, result.WordCount, method, result.Warnings, cancellationToken);
+
+        foreach (var warning in result.Warnings)
+        {
+            _logger.LogWarning(
+                "Extraction warning for uploaded file {UploadedFileId} ({FileName}): {Warning}",
+                file.Id,
+                file.OriginalFileName,
+                warning);
+        }
+
+        _logger.LogInformation(
+            "Extracted {WordCount} words from uploaded file {UploadedFileId} using {Method}.",
+            result.WordCount,
+            file.Id,
+            method);
+
+        return ExtractionOutcome.Success(method, result.WordCount, result.Warnings);
     }
 
     /// <summary>

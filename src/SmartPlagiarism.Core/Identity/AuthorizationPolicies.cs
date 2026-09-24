@@ -16,4 +16,7 @@ public static class AuthorizationPolicies
     /// analysis, its report? Staff may see any; a student only their own.
     /// </summary>
     public const string CanViewSubmission = "CanViewSubmission";
+
+    /// <summary>A REST API call authenticated by an API key rather than a sign-in cookie.</summary>
+    public const string ApiClient = "ApiClient";
 }

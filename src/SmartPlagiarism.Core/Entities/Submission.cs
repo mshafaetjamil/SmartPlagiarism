@@ -15,6 +15,8 @@ namespace SmartPlagiarism.Core.Entities;
 /// </summary>
 public class Submission
 {
+    public const int MaxTitleLength = 250;
+
     public int Id { get; set; }
 
     public int StudentProfileId { get; set; }
@@ -55,6 +57,14 @@ public class Submission
     public string? AnalysisError { get; private set; }
 
     public ICollection<UploadedFile> Files { get; } = [];
+
+    /// <summary>
+    /// The API key the submission came in through, or null for one made in the
+    /// web UI. An API client can read back only the submissions it made.
+    /// </summary>
+    public int? ApiKeyId { get; set; }
+
+    public ApiKey? ApiKey { get; set; }
 
     /// <summary>The current analysis result, or null until an analysis completes.</summary>
     public PlagiarismResult? PlagiarismResult { get; set; }

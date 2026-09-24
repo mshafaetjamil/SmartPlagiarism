@@ -15,17 +15,20 @@ public class SubmissionService : ISubmissionService
     private readonly IFileStorageService _fileStorage;
     private readonly IFileUploadValidator _validator;
     private readonly IAnalysisQueue _analysisQueue;
+    private readonly ISubmissionAccessService _access;
 
     public SubmissionService(
         AppDbContext context,
         IFileStorageService fileStorage,
         IFileUploadValidator validator,
-        IAnalysisQueue analysisQueue)
+        IAnalysisQueue analysisQueue,
+        ISubmissionAccessService access)
     {
         _context = context;
         _fileStorage = fileStorage;
         _validator = validator;
         _analysisQueue = analysisQueue;
+        _access = access;
     }
 
     public async Task<CreateSubmissionResult> CreateAsync(
@@ -99,6 +102,7 @@ public class SubmissionService : ISubmissionService
             Title = request.Title.Trim(),
             Type = request.Type,
             SubmittedAtUtc = DateTime.UtcNow,
+            ApiKeyId = request.ApiKeyId,
 
             // AnalysisStatus starts at Queued via the entity's initializer; the
             // background worker is what moves it on from there.
@@ -154,17 +158,27 @@ public class SubmissionService : ISubmissionService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<SubmissionDetailDto?> GetDetailForStudentAsync(
+    public Task<SubmissionDetailDto?> GetDetailForStudentAsync(
         int submissionId,
         string userId,
+        CancellationToken cancellationToken = default) =>
+        GetDetailAsync(submissionId, new SubmissionViewer(userId, IsStaff: false), cancellationToken);
+
+    public async Task<SubmissionDetailDto?> GetDetailAsync(
+        int submissionId,
+        SubmissionViewer viewer,
         CancellationToken cancellationToken = default)
     {
-        // Ownership is part of the WHERE clause rather than a check after loading,
-        // so another student's submission is simply not found.
+        // The shared access rule, so the web page and the REST API cannot drift
+        // apart on who may see what.
+        if (!await _access.CanViewAsync(submissionId, viewer, cancellationToken))
+        {
+            return null;
+        }
+
         return await _context.Submissions
             .AsNoTracking()
-            .Where(submission => submission.Id == submissionId
-                && submission.StudentProfile.UserId == userId)
+            .Where(submission => submission.Id == submissionId)
             .Select(submission => new SubmissionDetailDto(
                 submission.Id,
                 submission.Title,
@@ -211,6 +225,22 @@ public class SubmissionService : ISubmissionService
             .ToListAsync(cancellationToken);
 
         return new SubmissionFormOptionsDto(courses, semesters);
+    }
+
+    public async Task<string?> FindStudentUserIdAsync(string studentNumber, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(studentNumber))
+        {
+            return null;
+        }
+
+        var number = studentNumber.Trim();
+
+        return await _context.StudentProfiles
+            .AsNoTracking()
+            .Where(profile => profile.StudentNumber == number)
+            .Select(profile => profile.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<AnalysisStatusDto>> GetAnalysisStatusesForStudentAsync(

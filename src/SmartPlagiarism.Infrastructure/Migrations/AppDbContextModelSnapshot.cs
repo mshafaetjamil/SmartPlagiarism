@@ -155,6 +155,54 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("SmartPlagiarism.Core.Entities.ApiKey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("KeyHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime?>("LastUsedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .IsUnicode(false)
+                        .HasColumnType("char(12)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Prefix")
+                        .IsUnique();
+
+                    b.ToTable("ApiKeys");
+                });
+
             modelBuilder.Entity("SmartPlagiarism.Core.Entities.AuditLog", b =>
                 {
                     b.Property<long>("Id")
@@ -477,6 +525,9 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                     b.Property<int>("AnalysisStatus")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ApiKeyId")
+                        .HasColumnType("int");
+
                     b.Property<int>("CourseId")
                         .HasColumnType("int");
 
@@ -507,6 +558,8 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AnalysisStatus");
+
+                    b.HasIndex("ApiKeyId");
 
                     b.HasIndex("SemesterId");
 
@@ -807,6 +860,11 @@ namespace SmartPlagiarism.Infrastructure.Migrations
 
             modelBuilder.Entity("SmartPlagiarism.Core.Entities.Submission", b =>
                 {
+                    b.HasOne("SmartPlagiarism.Core.Entities.ApiKey", "ApiKey")
+                        .WithMany()
+                        .HasForeignKey("ApiKeyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("SmartPlagiarism.Core.Entities.Course", "Course")
                         .WithMany()
                         .HasForeignKey("CourseId")
@@ -824,6 +882,8 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                         .HasForeignKey("StudentProfileId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("ApiKey");
 
                     b.Navigation("Course");
 

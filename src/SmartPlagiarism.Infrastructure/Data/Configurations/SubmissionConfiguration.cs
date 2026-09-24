@@ -12,7 +12,7 @@ public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
 
         builder.Property(submission => submission.Title)
             .IsRequired()
-            .HasMaxLength(250);
+            .HasMaxLength(Submission.MaxTitleLength);
 
         builder.Property(submission => submission.TeacherComment)
             .HasMaxLength(Submission.MaxTeacherCommentLength);
@@ -51,6 +51,13 @@ public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
         builder.HasOne(submission => submission.Semester)
             .WithMany()
             .HasForeignKey(submission => submission.SemesterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Keys are revoked, never deleted, so the link to the key a submission
+        // came through always resolves.
+        builder.HasOne(submission => submission.ApiKey)
+            .WithMany()
+            .HasForeignKey(submission => submission.ApiKeyId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

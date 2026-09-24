@@ -80,6 +80,7 @@ public static class DependencyInjection
         services.AddScoped<IAcademicStructureService, AcademicStructureService>();
         services.AddScoped<IStatisticsService, StatisticsService>();
         services.AddScoped<IAuditLogReader, AuditLogReader>();
+        services.AddScoped<IApiKeyService, ApiKeyService>();
 
         AddAnalysis(services);
 

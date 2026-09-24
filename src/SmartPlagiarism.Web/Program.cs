@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using SmartPlagiarism.Core.Identity;
 using SmartPlagiarism.Infrastructure;
@@ -31,19 +32,34 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(
         AuthorizationPolicies.CanViewSubmission,
         policy => policy.RequireAuthenticatedUser().AddRequirements(new SubmissionAccessRequirement()));
+    options.AddPolicy(
+        AuthorizationPolicies.ApiClient,
+        policy => policy
+            .AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName)
+            .RequireAuthenticatedUser()
+            .RequireClaim(ApiKeyAuthenticationHandler.ApiKeyIdClaim));
 });
 
 // Scoped: it asks the database, through the request's DbContext.
 builder.Services.AddScoped<IAuthorizationHandler, SubmissionAccessHandler>();
 
-// Covers both the MVC views and the attribute-routed /api/v1 controllers.
-builder.Services.AddControllersWithViews();
+// API-key authentication, the upload rate limit and the OpenAPI document.
+builder.Services.AddRestApi(builder.Configuration);
+
+// Covers both the MVC views and the attribute-routed /api/v1 controllers. Enums
+// travel as their names, so API clients read "Completed" rather than 2.
+builder.Services.AddControllersWithViews()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     await app.SeedDevelopmentDataAsync();
+
+    // The API's OpenAPI document and a Swagger UI over it, Development only.
+    app.MapOpenApi();
+    app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Smart Plagiarism API v1"));
 }
 else
 {
@@ -59,6 +75,10 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// After authorization: an API call's key is only authenticated there, and the
+// upload limit is counted per key.
+app.UseRateLimiter();
+
 app.MapStaticAssets();
 
 app.MapControllerRoute(
@@ -70,3 +90,6 @@ app.MapControllerRoute(
 app.MapControllers();
 
 app.Run();
+
+/// <summary>Exposed so integration tests can host the app with WebApplicationFactory.</summary>
+public partial class Program;
