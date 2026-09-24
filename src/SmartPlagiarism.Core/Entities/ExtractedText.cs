@@ -22,4 +22,12 @@ public class ExtractedText
     public ExtractionMethod ExtractionMethod { get; set; }
 
     public DateTime ExtractedAtUtc { get; set; }
+
+    /// <summary>
+    /// What extraction could not do for this file - a damaged Bangla page read
+    /// by OCR instead, a scanned page with OCR unavailable, a file that could not
+    /// be read at all. Kept so a teacher is told why a score may be low rather
+    /// than shown a number with no explanation.
+    /// </summary>
+    public List<string> Warnings { get; set; } = [];
 }

@@ -6,7 +6,7 @@ namespace SmartPlagiarism.Core.Abstractions;
 /// Reads an uploaded document through the Engine and stores the text against it,
 /// so a later comparison never has to re-parse the file.
 ///
-/// Nothing calls this yet - Phase 6's background worker is what triggers it.
+/// Called by the background analyzer, once per file of each submission.
 ///
 /// It takes an id rather than a loaded entity on purpose: the worker dequeues ids,
 /// and the implementation needs its own DbContext scope. Handing it an entity

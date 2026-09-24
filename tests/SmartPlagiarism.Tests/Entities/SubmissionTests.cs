@@ -35,7 +35,7 @@ public class SubmissionTests
                 break;
             case AnalysisStatus.Failed:
                 submission.MarkProcessing();
-                submission.MarkFailed();
+                submission.MarkFailed("The file could not be read.");
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(target), target, "Unhandled analysis status.");
@@ -111,9 +111,73 @@ public class SubmissionTests
     {
         var submission = SubmissionInAnalysisState(AnalysisStatus.Processing);
 
-        submission.MarkFailed();
+        submission.MarkFailed("  No readable text was found.  ");
 
         submission.AnalysisStatus.Should().Be(AnalysisStatus.Failed);
+        submission.AnalysisError.Should().Be("No readable text was found.");
+    }
+
+    [Fact]
+    public void MarkFailed_WithoutAReason_Throws()
+    {
+        var submission = SubmissionInAnalysisState(AnalysisStatus.Processing);
+
+        var act = () => submission.MarkFailed(" ");
+
+        act.Should().Throw<ArgumentException>();
+        submission.AnalysisStatus.Should().Be(AnalysisStatus.Processing);
+    }
+
+    [Fact]
+    public void MarkFailed_KeepsTheReasonWithinTheColumnLimit()
+    {
+        var submission = SubmissionInAnalysisState(AnalysisStatus.Processing);
+
+        submission.MarkFailed(new string('x', Submission.MaxAnalysisErrorLength + 50));
+
+        submission.AnalysisError.Should().HaveLength(Submission.MaxAnalysisErrorLength);
+    }
+
+    [Theory]
+    [InlineData(AnalysisStatus.Completed)]
+    [InlineData(AnalysisStatus.Queued)]
+    public void FailureReason_IsClearedByTheNextRequeueOrSuccess(AnalysisStatus clearingStep)
+    {
+        var submission = SubmissionInAnalysisState(AnalysisStatus.Failed);
+
+        submission.RequeueForAnalysis();
+
+        if (clearingStep == AnalysisStatus.Completed)
+        {
+            submission.MarkProcessing();
+            submission.MarkCompleted();
+        }
+
+        submission.AnalysisError.Should().BeNull();
+    }
+
+    [Fact]
+    public void ResumeInterruptedAnalysis_FromProcessing_ReturnsToQueued()
+    {
+        var submission = SubmissionInAnalysisState(AnalysisStatus.Processing);
+
+        submission.ResumeInterruptedAnalysis();
+
+        submission.AnalysisStatus.Should().Be(AnalysisStatus.Queued);
+    }
+
+    [Theory]
+    [InlineData(AnalysisStatus.Queued)]
+    [InlineData(AnalysisStatus.Completed)]
+    [InlineData(AnalysisStatus.Failed)]
+    public void ResumeInterruptedAnalysis_FromAnythingButProcessing_Throws(AnalysisStatus startingState)
+    {
+        var submission = SubmissionInAnalysisState(startingState);
+
+        var act = submission.ResumeInterruptedAnalysis;
+
+        act.Should().Throw<InvalidOperationException>();
+        submission.AnalysisStatus.Should().Be(startingState);
     }
 
     [Theory]
@@ -124,7 +188,7 @@ public class SubmissionTests
     {
         var submission = SubmissionInAnalysisState(startingState);
 
-        var act = submission.MarkFailed;
+        var act = () => submission.MarkFailed("reason");
 
         act.Should().Throw<InvalidOperationException>();
         submission.AnalysisStatus.Should().Be(startingState);
@@ -164,7 +228,7 @@ public class SubmissionTests
         submission.MarkCompleted();
         submission.RequeueForAnalysis();
         submission.MarkProcessing();
-        submission.MarkFailed();
+        submission.MarkFailed("reason");
 
         submission.AnalysisStatus.Should().Be(AnalysisStatus.Failed);
 
@@ -261,7 +325,7 @@ public class SubmissionTests
         var submission = NewSubmission();
 
         submission.MarkProcessing();
-        submission.MarkFailed();
+        submission.MarkFailed("The file is corrupt.");
 
         // A teacher can still act on work whose analysis failed.
         submission.Reject("Analysis failed and the file is corrupt.");

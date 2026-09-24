@@ -1,3 +1,4 @@
+@using SmartPlagiarism.Web.Models.Analysis
 @model IReadOnlyList<SmartPlagiarism.Core.DTOs.Submissions.SubmissionListItemDto>
 @{
     ViewData["Title"] = "My submissions";
@@ -74,5 +75,11 @@
                 </table>
             </div>
         </div>
+
+        var poller = AnalysisPollerViewModel.For(
+            Url.Action(nameof(SubmissionsController.Status), "Submissions")!,
+            Model.Select(submission => (submission.Id, submission.AnalysisStatus)));
+
+        <partial name="_AnalysisPoller" model="poller" />
     }
 </div>

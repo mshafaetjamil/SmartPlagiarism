@@ -1,4 +1,5 @@
 @using SmartPlagiarism.Core.Enums
+@using SmartPlagiarism.Web.Models.Analysis
 @model SmartPlagiarism.Core.DTOs.Submissions.SubmissionDetailDto
 @{
     ViewData["Title"] = Model.Title;
@@ -78,9 +79,12 @@
                                 </p>
                                 break;
                             case AnalysisStatus.Failed:
-                                <p class="text-danger mb-0">
-                                    Analysis failed. Your teacher can re-run it.
-                                </p>
+                                <p class="text-danger mb-1">Analysis failed.</p>
+                                @if (!string.IsNullOrWhiteSpace(Model.AnalysisError))
+                                {
+                                    <p class="small mb-1">@Model.AnalysisError</p>
+                                }
+                                <p class="text-body-secondary small mb-0">Your teacher can re-run it.</p>
                                 break;
                             default:
                                 <p class="text-body-secondary mb-0">Analysis pending.</p>
@@ -130,4 +134,11 @@
             </div>
         </div>
     }
+
+    @{
+        var poller = AnalysisPollerViewModel.For(
+            Url.Action(nameof(SubmissionsController.Status), "Submissions")!,
+            [(Model.Id, Model.AnalysisStatus)]);
+    }
+    <partial name="_AnalysisPoller" model="poller" />
 </div>

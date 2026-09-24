@@ -1,0 +1,11 @@
+@using System.Text.Json
+@model SmartPlagiarism.Web.Models.Analysis.AnalysisPollerViewModel
+@* Read by site.js. Rendered only while something on the page is still queued or processing. *@
+@if (Model.HasPending)
+{
+    @* Serialized to a plain string so Razor HTML-encodes it: Json.Serialize returns
+       raw HTML, and its quotes would end the attribute early. *@
+    <div hidden
+         data-analysis-poll-url="@Model.StatusUrl"
+         data-analysis-pending="@JsonSerializer.Serialize(Model.Pending)"></div>
+}

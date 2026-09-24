@@ -5,6 +5,7 @@ using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.DTOs.Submissions;
 using SmartPlagiarism.Core.Files;
 using SmartPlagiarism.Core.Identity;
+using SmartPlagiarism.Web.Models.Analysis;
 using SmartPlagiarism.Web.Models.Submissions;
 
 namespace SmartPlagiarism.Web.Controllers;
@@ -108,6 +109,20 @@ public class SubmissionsController : Controller
         }
 
         return View(submission);
+    }
+
+    /// <summary>
+    /// Analysis status of the listed submissions, for the page's poller. Only the
+    /// student's own submissions are returned; never cached, since polling a
+    /// stale answer would stall the page.
+    /// </summary>
+    [HttpGet]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Status([FromQuery] int[] ids, CancellationToken cancellationToken)
+    {
+        var statuses = await _submissionService.GetAnalysisStatusesForStudentAsync(CurrentUserId, ids, cancellationToken);
+
+        return Json(AnalysisStatusResponse.From(statuses));
     }
 
     private async Task<CreateSubmissionViewModel> BuildFormAsync(

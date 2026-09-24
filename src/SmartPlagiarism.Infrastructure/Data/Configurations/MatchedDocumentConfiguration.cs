@@ -23,6 +23,13 @@ public class MatchedDocumentConfiguration : IEntityTypeConfiguration<MatchedDocu
             .HasForeignKey(match => match.PlagiarismResultId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Restrict for the same reason as MatchedUploadedFile below: the
+        // submission's delete already reaches these rows through its result.
+        builder.HasOne(match => match.UploadedFile)
+            .WithMany()
+            .HasForeignKey(match => match.UploadedFileId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Restrict, not Cascade: deleting a Submission already cascades to both its
         // UploadedFiles and its PlagiarismResult -> MatchedDocuments. Cascading here
         // too would give SQL Server two delete paths to the same rows, which it

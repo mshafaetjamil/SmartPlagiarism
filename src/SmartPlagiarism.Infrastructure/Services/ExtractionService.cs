@@ -49,8 +49,7 @@ public class ExtractionService : IExtractionService
 
         if (extractor is null)
         {
-            return ExtractionOutcome.Failure(
-                $"No extractor is registered for '{Path.GetExtension(file.StoragePath)}'.");
+            return await FailAsync(file, $"No extractor is registered for '{Path.GetExtension(file.StoragePath)}'.", cancellationToken);
         }
 
         try
@@ -60,7 +59,7 @@ public class ExtractionService : IExtractionService
             var result = await extractor.ExtractAsync(document, cancellationToken);
 
             var method = MapMethod(result.Method);
-            await PersistAsync(file, result.FullText, result.WordCount, method, cancellationToken);
+            await PersistAsync(file, result.FullText, result.WordCount, method, result.Warnings, cancellationToken);
 
             foreach (var warning in result.Warnings)
             {
@@ -94,8 +93,22 @@ public class ExtractionService : IExtractionService
                 file.Id,
                 file.OriginalFileName);
 
-            return ExtractionOutcome.Failure($"Could not extract text: {ex.Message}");
+            return await FailAsync(file, "The file could not be read; it may be corrupt or password-protected.", cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Records a file that yielded no text at all as an empty extraction carrying
+    /// the reason, so the file's own row explains why it matched nothing - rather
+    /// than a missing row that says nothing, or a stale one from an earlier run.
+    /// </summary>
+    private async Task<ExtractionOutcome> FailAsync(
+        UploadedFile file,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        await PersistAsync(file, string.Empty, 0, ExtractionMethod.Native, [reason], cancellationToken);
+        return ExtractionOutcome.Failure(reason);
     }
 
     private async Task PersistAsync(
@@ -103,6 +116,7 @@ public class ExtractionService : IExtractionService
         string fullText,
         int wordCount,
         ExtractionMethod method,
+        IReadOnlyList<string> warnings,
         CancellationToken cancellationToken)
     {
         // Replace rather than accumulate: re-extraction of the same file should
@@ -119,6 +133,7 @@ public class ExtractionService : IExtractionService
         extracted.WordCount = wordCount;
         extracted.ExtractionMethod = method;
         extracted.ExtractedAtUtc = DateTime.UtcNow;
+        extracted.Warnings = [.. warnings];
 
         await _context.SaveChangesAsync(cancellationToken);
     }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartPlagiarism.Core.Abstractions;
+using SmartPlagiarism.Core.DTOs.Analysis;
 using SmartPlagiarism.Core.DTOs.Submissions;
 using SmartPlagiarism.Core.Entities;
 using SmartPlagiarism.Core.Files;
@@ -13,15 +14,18 @@ public class SubmissionService : ISubmissionService
     private readonly AppDbContext _context;
     private readonly IFileStorageService _fileStorage;
     private readonly IFileUploadValidator _validator;
+    private readonly IAnalysisQueue _analysisQueue;
 
     public SubmissionService(
         AppDbContext context,
         IFileStorageService fileStorage,
-        IFileUploadValidator validator)
+        IFileUploadValidator validator,
+        IAnalysisQueue analysisQueue)
     {
         _context = context;
         _fileStorage = fileStorage;
         _validator = validator;
+        _analysisQueue = analysisQueue;
     }
 
     public async Task<CreateSubmissionResult> CreateAsync(
@@ -96,8 +100,8 @@ public class SubmissionService : ISubmissionService
             Type = request.Type,
             SubmittedAtUtc = DateTime.UtcNow,
 
-            // AnalysisStatus starts at Queued via the entity's initializer; Phase 6's
-            // worker is what moves it on from there.
+            // AnalysisStatus starts at Queued via the entity's initializer; the
+            // background worker is what moves it on from there.
         };
 
         for (var index = 0; index < request.Files.Count; index++)
@@ -119,6 +123,9 @@ public class SubmissionService : ISubmissionService
 
         _context.Submissions.Add(submission);
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Queued only once saved, so the worker always finds the row it is given.
+        await _analysisQueue.EnqueueAsync(submission.Id, cancellationToken);
 
         return CreateSubmissionResult.Success(submission.Id);
     }
@@ -167,6 +174,7 @@ public class SubmissionService : ISubmissionService
                 submission.Type,
                 submission.SubmittedAtUtc,
                 submission.AnalysisStatus,
+                submission.AnalysisError,
                 submission.Status,
                 submission.TeacherComment,
                 submission.Files
@@ -203,5 +211,26 @@ public class SubmissionService : ISubmissionService
             .ToListAsync(cancellationToken);
 
         return new SubmissionFormOptionsDto(courses, semesters);
+    }
+
+    public async Task<IReadOnlyList<AnalysisStatusDto>> GetAnalysisStatusesForStudentAsync(
+        string userId,
+        IReadOnlyCollection<int> submissionIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = submissionIds.Distinct().Take(AnalysisStatusQuery.MaxSubmissionIds).ToList();
+
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        // Ownership in the WHERE clause, as on the detail page: another student's
+        // ids simply return nothing.
+        return await _context.Submissions
+            .AsNoTracking()
+            .Where(submission => ids.Contains(submission.Id) && submission.StudentProfile.UserId == userId)
+            .Select(submission => new AnalysisStatusDto(submission.Id, submission.AnalysisStatus))
+            .ToListAsync(cancellationToken);
     }
 }

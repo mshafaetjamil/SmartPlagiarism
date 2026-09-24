@@ -25,6 +25,7 @@ public sealed record SubmissionDetailDto(
     SubmissionType Type,
     DateTime SubmittedAtUtc,
     AnalysisStatus AnalysisStatus,
+    string? AnalysisError,
     SubmissionStatus Status,
     string? TeacherComment,
     IReadOnlyList<SubmissionFileDto> Files,
@@ -37,7 +38,7 @@ public sealed record SubmissionFileDto(
     long SizeBytes,
     string Sha256Hash);
 
-/// <summary>Null on the detail DTO until Phase 6's pipeline produces an analysis.</summary>
+/// <summary>Null on the detail DTO until an analysis has completed.</summary>
 public sealed record SubmissionResultDto(
     decimal OverallSimilarityPercent,
     DateTime AnalyzedAtUtc,

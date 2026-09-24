@@ -11,6 +11,7 @@ using SmartPlagiarism.Engine.Extraction;
 using SmartPlagiarism.Engine.Fingerprinting;
 using SmartPlagiarism.Engine.Ocr;
 using SmartPlagiarism.Engine.Similarity;
+using SmartPlagiarism.Infrastructure.Analysis;
 using SmartPlagiarism.Infrastructure.Data;
 using SmartPlagiarism.Infrastructure.Services;
 using SmartPlagiarism.Infrastructure.Similarity;
@@ -62,6 +63,8 @@ public static class DependencyInjection
         services.AddScoped<ISubmissionService, SubmissionService>();
         services.AddScoped<IExtractionService, ExtractionService>();
 
+        AddAnalysis(services);
+
         return services;
     }
 
@@ -104,8 +107,21 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// The similarity engine and its two ports into storage. Phase 6's worker is
-    /// what will drive the pipeline.
+    /// The background analysis pipeline. The queue is a singleton shared by the
+    /// web requests that fill it and the worker that drains it; everything the
+    /// worker runs is scoped and resolved per submission.
+    /// </summary>
+    private static void AddAnalysis(IServiceCollection services)
+    {
+        services.AddSingleton<IAnalysisQueue, ChannelAnalysisQueue>();
+        services.AddScoped<ISubmissionAnalyzer, SubmissionAnalyzer>();
+        services.AddScoped<IAnalysisService, AnalysisService>();
+        services.AddHostedService<AnalysisWorker>();
+    }
+
+    /// <summary>
+    /// The similarity engine and its two ports into storage, driven by
+    /// <see cref="SubmissionAnalyzer"/>.
     /// </summary>
     private static void AddSimilarity(IServiceCollection services, IConfiguration configuration)
     {

@@ -17,6 +17,9 @@ public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
         builder.Property(submission => submission.TeacherComment)
             .HasMaxLength(1000);
 
+        builder.Property(submission => submission.AnalysisError)
+            .HasMaxLength(Submission.MaxAnalysisErrorLength);
+
         // AnalysisStatus and Status have private setters so that the domain methods
         // on Submission are the only way to change them; EF writes through the
         // backing fields regardless.

@@ -14,7 +14,14 @@
       API-compatible with everything this project needs.
     -->
     <PackageReference Include="FluentAssertions" Version="7.2.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <!--
+      Pinned above the 2.1.11 that EF Core's SQLite provider pulls in, which carries
+      a high-severity advisory (GHSA-2m69-gcr7-jv3q). Remove once EF depends on a
+      fixed version itself.
+    -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
   </ItemGroup>

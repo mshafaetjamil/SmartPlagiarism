@@ -312,6 +312,10 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                     b.Property<int>("UploadedFileId")
                         .HasColumnType("int");
 
+                    b.PrimitiveCollection<string>("Warnings")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("WordCount")
                         .HasColumnType("int");
 
@@ -345,11 +349,16 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<int>("UploadedFileId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("MatchedUploadedFileId");
 
                     b.HasIndex("PlagiarismResultId");
+
+                    b.HasIndex("UploadedFileId");
 
                     b.ToTable("MatchedDocuments");
                 });
@@ -460,6 +469,10 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AnalysisError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<int>("AnalysisStatus")
                         .HasColumnType("int");
@@ -749,9 +762,17 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("SmartPlagiarism.Core.Entities.UploadedFile", "UploadedFile")
+                        .WithMany()
+                        .HasForeignKey("UploadedFileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("MatchedUploadedFile");
 
                     b.Navigation("PlagiarismResult");
+
+                    b.Navigation("UploadedFile");
                 });
 
             modelBuilder.Entity("SmartPlagiarism.Core.Entities.PlagiarismResult", b =>

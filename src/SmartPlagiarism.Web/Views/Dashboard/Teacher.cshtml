@@ -1,3 +1,5 @@
+@using SmartPlagiarism.Core.Enums
+@using SmartPlagiarism.Web.Models.Analysis
 @model SmartPlagiarism.Core.DTOs.Dashboards.TeacherDashboardDto
 @{
     ViewData["Title"] = "Teacher dashboard";
@@ -5,6 +7,11 @@
 
 <div class="container py-4">
     <h1 class="h3 mb-4">Teacher dashboard</h1>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div class="alert alert-info" role="alert">@statusMessage</div>
+    }
 
     <div class="row g-3 mb-4">
         <div class="col-md-4">
@@ -60,6 +67,7 @@
                             <th scope="col">Analysis</th>
                             <th scope="col">Review</th>
                             <th scope="col" class="text-end">Similarity</th>
+                            <th scope="col"><span class="visually-hidden">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -73,18 +81,42 @@
                                 </td>
                                 <td>@submission.CourseCode</td>
                                 <td>@submission.SubmittedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
-                                <td>@submission.AnalysisStatus</td>
-                                <td>@submission.Status</td>
+                                <td>
+                                    <span class="badge @StatusBadge.For(submission.AnalysisStatus)"
+                                          title="@submission.AnalysisError">@submission.AnalysisStatus</span>
+                                    @if (!string.IsNullOrWhiteSpace(submission.AnalysisError))
+                                    {
+                                        <span class="d-block small text-danger">@submission.AnalysisError</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge @StatusBadge.For(submission.Status)">@StatusBadge.Label(submission.Status)</span>
+                                </td>
                                 <td class="text-end">
                                     @(submission.OverallSimilarityPercent.HasValue
                                         ? $"{submission.OverallSimilarityPercent.Value:0.00}%"
                                         : "-")
+                                </td>
+                                <td class="text-end">
+                                    @if (submission.AnalysisStatus is AnalysisStatus.Completed or AnalysisStatus.Failed)
+                                    {
+                                        <form method="post" asp-controller="Analysis" asp-action="Rerun"
+                                              asp-route-id="@submission.SubmissionId" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary">Re-run analysis</button>
+                                        </form>
+                                    }
                                 </td>
                             </tr>
                         }
                     </tbody>
                 </table>
             </div>
+
+            var poller = AnalysisPollerViewModel.For(
+                Url.Action(nameof(AnalysisController.Status), "Analysis")!,
+                Model.RecentSubmissions.Select(submission => (submission.SubmissionId, submission.AnalysisStatus)));
+
+            <partial name="_AnalysisPoller" model="poller" />
         }
     </div>
 </div>

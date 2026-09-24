@@ -12,6 +12,15 @@ public class MatchedDocument
     public PlagiarismResult PlagiarismResult { get; set; } = null!;
 
     /// <summary>
+    /// Which of the submission's own files contains the matching passages. A
+    /// submission can hold several files, and the fragment offsets in
+    /// <see cref="MatchedFragmentsJson"/> index into this file's text.
+    /// </summary>
+    public int UploadedFileId { get; set; }
+
+    public UploadedFile UploadedFile { get; set; } = null!;
+
+    /// <summary>
     /// The file that was matched against. Null when the match came from a source
     /// outside the corpus - internet sources are not implemented yet, and this
     /// column is what will carry them without a schema change.

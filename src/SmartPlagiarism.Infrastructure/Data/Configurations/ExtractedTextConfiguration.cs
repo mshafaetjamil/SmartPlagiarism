@@ -14,6 +14,11 @@ public class ExtractedTextConfiguration : IEntityTypeConfiguration<ExtractedText
         builder.Property(text => text.FullText)
             .IsRequired();
 
+        // A primitive collection: stored as a JSON array in one nvarchar(max)
+        // column, since warnings are always read and written with their row.
+        builder.PrimitiveCollection(text => text.Warnings)
+            .IsRequired();
+
         // One extraction per file; EF creates the unique index for this 1:1.
         builder.HasOne(text => text.UploadedFile)
             .WithOne(file => file.ExtractedText)

@@ -1,3 +1,4 @@
+using SmartPlagiarism.Core.DTOs.Analysis;
 using SmartPlagiarism.Core.DTOs.Submissions;
 
 namespace SmartPlagiarism.Core.Abstractions;
@@ -9,9 +10,10 @@ namespace SmartPlagiarism.Core.Abstractions;
 public interface ISubmissionService
 {
     /// <summary>
-    /// Validates the request and its files, stores the files, and creates the
-    /// submission with AnalysisStatus = Queued. Nothing is written - to disk or to
-    /// the database - unless every file passes validation.
+    /// Validates the request and its files, stores the files, creates the
+    /// submission with AnalysisStatus = Queued and queues it for analysis. Nothing
+    /// is written - to disk or to the database - unless every file passes
+    /// validation.
     /// </summary>
     Task<CreateSubmissionResult> CreateAsync(
         CreateSubmissionRequest request,
@@ -32,4 +34,13 @@ public interface ISubmissionService
         CancellationToken cancellationToken = default);
 
     Task<SubmissionFormOptionsDto> GetFormOptionsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Analysis status of the requested submissions that belong to this student.
+    /// Ids of anyone else's work are silently left out.
+    /// </summary>
+    Task<IReadOnlyList<AnalysisStatusDto>> GetAnalysisStatusesForStudentAsync(
+        string userId,
+        IReadOnlyCollection<int> submissionIds,
+        CancellationToken cancellationToken = default);
 }

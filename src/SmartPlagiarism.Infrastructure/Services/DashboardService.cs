@@ -112,6 +112,7 @@ public class DashboardService : IDashboardService
                 submission.Course.Code,
                 submission.SubmittedAtUtc,
                 submission.AnalysisStatus,
+                submission.AnalysisError,
                 submission.Status,
                 submission.PlagiarismResult != null
                     ? submission.PlagiarismResult.OverallSimilarityPercent

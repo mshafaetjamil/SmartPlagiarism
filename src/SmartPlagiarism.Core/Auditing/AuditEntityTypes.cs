@@ -4,4 +4,5 @@ namespace SmartPlagiarism.Core.Auditing;
 public static class AuditEntityTypes
 {
     public const string Account = "Account";
+    public const string Submission = "Submission";
 }

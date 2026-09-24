@@ -8,7 +8,8 @@ namespace SmartPlagiarism.Core.DTOs.Extraction;
 /// <param name="Method">Null when extraction did not get far enough to decide.</param>
 /// <param name="Warnings">
 /// Non-fatal problems - pages with no text, OCR unavailable. Extraction can
-/// succeed with warnings; Phase 6 surfaces them without failing the analysis.
+/// succeed with warnings; they are stored with the extracted text rather than
+/// failing the analysis.
 /// </param>
 public sealed record ExtractionOutcome(
     bool Succeeded,

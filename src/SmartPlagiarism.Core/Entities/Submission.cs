@@ -42,6 +42,15 @@ public class Submission
     /// <summary>Set when a teacher approves or rejects. Required for a rejection.</summary>
     public string? TeacherComment { get; private set; }
 
+    /// <summary>Longest failure reason kept; matches the column.</summary>
+    public const int MaxAnalysisErrorLength = 1000;
+
+    /// <summary>
+    /// Why the last analysis failed, in words fit to show the student and the
+    /// teacher. Null unless <see cref="AnalysisStatus"/> is Failed.
+    /// </summary>
+    public string? AnalysisError { get; private set; }
+
     public ICollection<UploadedFile> Files { get; } = [];
 
     /// <summary>The current analysis result, or null until an analysis completes.</summary>
@@ -49,7 +58,8 @@ public class Submission
 
     // ---------------- analysis lifecycle ----------------
     // Queued -> Processing -> Completed | Failed, and Completed/Failed -> Queued
-    // when an admin or teacher asks for a re-run.
+    // when an admin or teacher asks for a re-run. Processing -> Queued only when
+    // the app restarts mid-analysis, see ResumeInterruptedAnalysis.
 
     /// <summary>Claims a queued submission for analysis.</summary>
     public void MarkProcessing()
@@ -71,17 +81,27 @@ public class Submission
         }
 
         AnalysisStatus = AnalysisStatus.Completed;
+        AnalysisError = null;
     }
 
     /// <summary>Records that analysis failed and will not produce a result.</summary>
-    public void MarkFailed()
+    /// <param name="reason">Why, in words a student and a teacher can act on.</param>
+    public void MarkFailed(string reason)
     {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException("A failure must say why.", nameof(reason));
+        }
+
         if (AnalysisStatus != AnalysisStatus.Processing)
         {
             throw InvalidTransition(nameof(MarkFailed));
         }
 
         AnalysisStatus = AnalysisStatus.Failed;
+
+        var trimmed = reason.Trim();
+        AnalysisError = trimmed.Length <= MaxAnalysisErrorLength ? trimmed : trimmed[..MaxAnalysisErrorLength];
     }
 
     /// <summary>Puts a finished submission back on the queue for re-analysis.</summary>
@@ -90,6 +110,22 @@ public class Submission
         if (AnalysisStatus is not (AnalysisStatus.Completed or AnalysisStatus.Failed))
         {
             throw InvalidTransition(nameof(RequeueForAnalysis));
+        }
+
+        AnalysisStatus = AnalysisStatus.Queued;
+        AnalysisError = null;
+    }
+
+    /// <summary>
+    /// Returns a submission to the queue after the app stopped while analysing it.
+    /// The queue lives in memory, so without this a restart would leave the
+    /// submission showing "Processing" forever.
+    /// </summary>
+    public void ResumeInterruptedAnalysis()
+    {
+        if (AnalysisStatus != AnalysisStatus.Processing)
+        {
+            throw InvalidTransition(nameof(ResumeInterruptedAnalysis));
         }
 
         AnalysisStatus = AnalysisStatus.Queued;

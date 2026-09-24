@@ -20,5 +20,6 @@ public sealed record TeacherSubmissionSummaryDto(
     string CourseCode,
     DateTime SubmittedAtUtc,
     AnalysisStatus AnalysisStatus,
+    string? AnalysisError,
     SubmissionStatus Status,
     decimal? OverallSimilarityPercent);
