@@ -1,8 +1,12 @@
+using System.Globalization;
+using Microsoft.AspNetCore.Html;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using SmartPlagiarism.Core.Enums;
+using SmartPlagiarism.Core.Review;
 
 namespace SmartPlagiarism.Web.Models;
 
-/// <summary>Maps the two status enums onto Bootstrap badge classes.</summary>
+/// <summary>Maps statuses and similarity scores onto Bootstrap badge classes.</summary>
 public static class StatusBadge
 {
     public static string For(AnalysisStatus status) => status switch
@@ -27,6 +31,41 @@ public static class StatusBadge
     {
         SubmissionStatus.PendingReview => "Pending review",
         _ => status.ToString(),
+    };
+
+    /// <summary>
+    /// A similarity score as a badge coloured by <see cref="SimilarityBands"/>:
+    /// green below 20%, yellow to 50%, red above. A dash when there is no score.
+    /// </summary>
+    public static IHtmlContent Similarity(decimal? percent)
+    {
+        if (percent is not { } value)
+        {
+            var none = new TagBuilder("span");
+            none.AddCssClass("text-body-secondary");
+            none.InnerHtml.Append("-");
+            return none;
+        }
+
+        var badge = new TagBuilder("span");
+        badge.AddCssClass($"badge {SimilarityBadgeClass(value)}");
+        badge.InnerHtml.Append(string.Create(CultureInfo.InvariantCulture, $"{value:0.00}%"));
+        return badge;
+    }
+
+    public static string SimilarityBadgeClass(decimal percent) => SimilarityBands.Classify(percent) switch
+    {
+        SimilarityBand.Low => "text-bg-success",
+        SimilarityBand.Moderate => "text-bg-warning",
+        _ => "text-bg-danger",
+    };
+
+    /// <summary>For a large score figure, where a filled badge would be too heavy.</summary>
+    public static string SimilarityTextClass(decimal percent) => SimilarityBands.Classify(percent) switch
+    {
+        SimilarityBand.Low => "text-success",
+        SimilarityBand.Moderate => "text-warning-emphasis",
+        _ => "text-danger",
     };
 
     public static string FormatBytes(long bytes)

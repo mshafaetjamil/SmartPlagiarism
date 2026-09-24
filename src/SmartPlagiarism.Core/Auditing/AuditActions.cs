@@ -7,4 +7,6 @@ public static class AuditActions
     public const string LoginFailed = "LoginFailed";
     public const string Logout = "Logout";
     public const string AnalysisRequeued = "AnalysisRequeued";
+    public const string SubmissionApproved = "SubmissionApproved";
+    public const string SubmissionRejected = "SubmissionRejected";
 }

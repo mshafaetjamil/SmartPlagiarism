@@ -1,0 +1,173 @@
+@using SmartPlagiarism.Core.DTOs.Review
+@using SmartPlagiarism.Core.Enums
+@using SmartPlagiarism.Web.Models.Analysis
+@model SmartPlagiarism.Web.Models.Review.ReviewListViewModel
+@{
+    ViewData["Title"] = "Submissions";
+    var filter = Model.Filter;
+    var results = Model.Results;
+
+    string SortIndicator(ReviewSortField field) =>
+        filter.Sort != field ? string.Empty : filter.Desc ? " ▾" : " ▴";
+
+    string? AriaSort(ReviewSortField field) =>
+        filter.Sort != field ? null : filter.Desc ? "descending" : "ascending";
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h1 class="h3 mb-0">Submissions</h1>
+        <span class="text-body-secondary small">@results.TotalCount submission(s)</span>
+    </div>
+
+    <form method="get" asp-action="Index" class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <div asp-validation-summary="All" class="alert alert-warning small"></div>
+            <div class="row g-2 align-items-end">
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label small mb-1" for="CourseId">Course</label>
+                    <select id="CourseId" name="CourseId" class="form-select form-select-sm">
+                        <option value="">All courses</option>
+                        @foreach (var course in Model.Courses)
+                        {
+                            <option value="@course.Id" selected="@(filter.CourseId == course.Id)">@course.Code</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label small mb-1" for="SemesterId">Semester</label>
+                    <select id="SemesterId" name="SemesterId" class="form-select form-select-sm">
+                        <option value="">All semesters</option>
+                        @foreach (var semester in Model.Semesters)
+                        {
+                            <option value="@semester.Id" selected="@(filter.SemesterId == semester.Id)">@semester.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label small mb-1" for="Status">Review</label>
+                    <select id="Status" name="Status" class="form-select form-select-sm">
+                        <option value="">Any</option>
+                        @foreach (var status in Enum.GetValues<SubmissionStatus>())
+                        {
+                            <option value="@status" selected="@(filter.Status == status)">@StatusBadge.Label(status)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label small mb-1" for="Analysis">Analysis</label>
+                    <select id="Analysis" name="Analysis" class="form-select form-select-sm">
+                        <option value="">Any</option>
+                        @foreach (var status in Enum.GetValues<AnalysisStatus>())
+                        {
+                            <option value="@status" selected="@(filter.Analysis == status)">@status</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-6 col-lg-1">
+                    <label class="form-label small mb-1" for="MinSimilarity">Min %</label>
+                    <input id="MinSimilarity" name="MinSimilarity" type="number" min="0" max="100" step="1"
+                           value="@filter.MinSimilarity" class="form-control form-control-sm" />
+                </div>
+                <div class="col-6 col-lg-1">
+                    <label class="form-label small mb-1" for="MaxSimilarity">Max %</label>
+                    <input id="MaxSimilarity" name="MaxSimilarity" type="number" min="0" max="100" step="1"
+                           value="@filter.MaxSimilarity" class="form-control form-control-sm" />
+                </div>
+                <div class="col-lg-2 d-flex gap-2">
+                    @* The current sort survives a filter change; the page does not. *@
+                    <input type="hidden" name="Sort" value="@filter.Sort" />
+                    <input type="hidden" name="Desc" value="@filter.Desc.ToString().ToLowerInvariant()" />
+                    <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filter</button>
+                    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Reset</a>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    @if (results.Items.Count == 0)
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center text-body-secondary py-5">No submissions match these filters.</div>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col" aria-sort="@AriaSort(ReviewSortField.Title)">
+                                <a asp-action="Index" asp-all-route-data="filter.RouteValues(sort: ReviewSortField.Title)">Title@(SortIndicator(ReviewSortField.Title))</a>
+                            </th>
+                            <th scope="col" aria-sort="@AriaSort(ReviewSortField.Student)">
+                                <a asp-action="Index" asp-all-route-data="filter.RouteValues(sort: ReviewSortField.Student)">Student@(SortIndicator(ReviewSortField.Student))</a>
+                            </th>
+                            <th scope="col" aria-sort="@AriaSort(ReviewSortField.Course)">
+                                <a asp-action="Index" asp-all-route-data="filter.RouteValues(sort: ReviewSortField.Course)">Course@(SortIndicator(ReviewSortField.Course))</a>
+                            </th>
+                            <th scope="col" aria-sort="@AriaSort(ReviewSortField.SubmittedAt)">
+                                <a asp-action="Index" asp-all-route-data="filter.RouteValues(sort: ReviewSortField.SubmittedAt)">Submitted@(SortIndicator(ReviewSortField.SubmittedAt))</a>
+                            </th>
+                            <th scope="col">Analysis</th>
+                            <th scope="col">Review</th>
+                            <th scope="col" class="text-end" aria-sort="@AriaSort(ReviewSortField.Similarity)">
+                                <a asp-action="Index" asp-all-route-data="filter.RouteValues(sort: ReviewSortField.Similarity)">Similarity@(SortIndicator(ReviewSortField.Similarity))</a>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var submission in results.Items)
+                        {
+                            <tr>
+                                <td>
+                                    <a asp-action="Submission" asp-route-id="@submission.Id">@submission.Title</a>
+                                    @if (submission.MatchCount > 0)
+                                    {
+                                        <span class="d-block small text-body-secondary">@submission.MatchCount matched source(s)</span>
+                                    }
+                                </td>
+                                <td>
+                                    @submission.StudentName
+                                    <span class="d-block small text-body-secondary">@submission.StudentNumber</span>
+                                </td>
+                                <td>
+                                    @submission.CourseCode
+                                    <span class="d-block small text-body-secondary">@submission.SemesterName</span>
+                                </td>
+                                <td>@submission.SubmittedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                                <td><span class="badge @StatusBadge.For(submission.AnalysisStatus)">@submission.AnalysisStatus</span></td>
+                                <td><span class="badge @StatusBadge.For(submission.Status)">@StatusBadge.Label(submission.Status)</span></td>
+                                <td class="text-end">@StatusBadge.Similarity(submission.OverallSimilarityPercent)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if (results.TotalPages > 1)
+        {
+            <nav aria-label="Submission pages" class="mt-3">
+                <ul class="pagination pagination-sm justify-content-center">
+                    <li class="page-item @(results.Page == 1 ? "disabled" : null)">
+                        <a class="page-link" asp-action="Index" asp-all-route-data="filter.RouteValues(page: results.Page - 1)">Previous</a>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">Page @results.Page of @results.TotalPages</span>
+                    </li>
+                    <li class="page-item @(results.Page == results.TotalPages ? "disabled" : null)">
+                        <a class="page-link" asp-action="Index" asp-all-route-data="filter.RouteValues(page: results.Page + 1)">Next</a>
+                    </li>
+                </ul>
+            </nav>
+        }
+
+        var poller = AnalysisPollerViewModel.For(
+            Url.Action(nameof(AnalysisController.Status), "Analysis")!,
+            results.Items.Select(submission => (submission.Id, submission.AnalysisStatus)));
+
+        <partial name="_AnalysisPoller" model="poller" />
+    }
+</div>

@@ -1,0 +1,74 @@
+@using SmartPlagiarism.Web.Models.Review
+@model SmartPlagiarism.Core.DTOs.Review.ComparisonDto
+@{
+    ViewData["Title"] = $"Compare - {Model.SubmissionTitle}";
+}
+
+<div class="container-fluid px-lg-4 py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a asp-action="Index">Submissions</a></li>
+            <li class="breadcrumb-item"><a asp-action="Submission" asp-route-id="@Model.SubmissionId">@Model.SubmissionTitle</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Compare</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <h1 class="h4 mb-0 me-2">Matched passages</h1>
+        @StatusBadge.Similarity(Model.SimilarityPercent)
+        <span class="text-body-secondary small">@Model.PassageCount passage(s)</span>
+    </div>
+
+    @if (Model.SourceChangedSinceAnalysis)
+    {
+        <div class="alert alert-warning small" role="alert">
+            One of these documents was read again after this analysis ran, so the highlighted passages may no
+            longer line up. Re-run the analysis for this submission to refresh them.
+        </div>
+    }
+
+    @if (Model.IdenticalFiles)
+    {
+        <div class="alert alert-danger small" role="alert">
+            These two files are byte-for-byte identical: the same file was submitted twice.
+        </div>
+    }
+    else if (Model.PassageCount == 0)
+    {
+        <div class="alert alert-secondary small" role="alert">
+            The documents share vocabulary, but no copied passage was long enough to highlight.
+        </div>
+    }
+
+    @if (Model.PassageCount > 0)
+    {
+        <div class="d-flex flex-wrap gap-1 mb-3" aria-label="Jump to a passage">
+            @for (var passage = 0; passage < Model.PassageCount; passage++)
+            {
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-fragment-jump="@passage">
+                    Passage @(passage + 1)
+                </button>
+            }
+        </div>
+    }
+
+    <div class="row g-3">
+        @foreach (var (side, label) in new[] { (Model.Submitted, "Submitted"), (Model.Source, "Matched source") })
+        {
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent">
+                        <div class="small text-uppercase text-body-secondary">@label</div>
+                        <div class="fw-semibold">@side.FileName</div>
+                        <div class="small text-body-secondary">@side.SubmissionTitle &middot; @side.StudentName</div>
+                    </div>
+                    <div class="card-body match-pane" data-match-pane>@HighlightRenderer.Render(side.Segments)</div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script type="module" src="~/js/match-viewer.js" asp-append-version="true"></script>
+}

@@ -65,9 +65,7 @@
                                     </span>
                                 </td>
                                 <td class="text-end">
-                                    @(submission.OverallSimilarityPercent.HasValue
-                                        ? $"{submission.OverallSimilarityPercent.Value:0.00}%"
-                                        : "-")
+                                    @StatusBadge.Similarity(submission.OverallSimilarityPercent)
                                 </td>
                             </tr>
                         }

@@ -1,0 +1,238 @@
+@using SmartPlagiarism.Core.Entities
+@using SmartPlagiarism.Core.Enums
+@using SmartPlagiarism.Web.Models.Analysis
+@model SmartPlagiarism.Core.DTOs.Review.ReviewSubmissionDetailDto
+@{
+    ViewData["Title"] = Model.Title;
+    var canRerun = Model.AnalysisStatus is AnalysisStatus.Completed or AnalysisStatus.Failed;
+    var thisPage = Url.Action(nameof(ReviewController.Submission), new { id = Model.Id });
+}
+
+<div class="container py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a asp-action="Index">Submissions</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@Model.Title</li>
+        </ol>
+    </nav>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div class="alert alert-info" role="alert">@statusMessage</div>
+    }
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
+        <h1 class="h3 mb-0 me-2">@Model.Title</h1>
+        <span class="badge @StatusBadge.For(Model.AnalysisStatus)">@Model.AnalysisStatus</span>
+        <span class="badge @StatusBadge.For(Model.Status)">@StatusBadge.Label(Model.Status)</span>
+        @if (canRerun)
+        {
+            <form method="post" asp-controller="Analysis" asp-action="Rerun" asp-route-id="@Model.Id"
+                  asp-route-returnUrl="@thisPage" class="ms-auto">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Re-run analysis</button>
+            </form>
+        }
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-transparent"><h2 class="h6 mb-0">Details</h2></div>
+                <div class="card-body">
+                    <dl class="row mb-0 small">
+                        <dt class="col-5">Student</dt>
+                        <dd class="col-7">@Model.StudentName <span class="d-block text-body-secondary">@Model.StudentNumber</span></dd>
+
+                        <dt class="col-5">Course</dt>
+                        <dd class="col-7">@Model.CourseCode &ndash; @Model.CourseTitle</dd>
+
+                        <dt class="col-5">Semester</dt>
+                        <dd class="col-7">@Model.SemesterName</dd>
+
+                        <dt class="col-5">Type</dt>
+                        <dd class="col-7">@Model.Type</dd>
+
+                        <dt class="col-5">Submitted</dt>
+                        <dd class="col-7">@Model.SubmittedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-transparent"><h2 class="h6 mb-0">Originality analysis</h2></div>
+                <div class="card-body">
+                    @if (Model.Result is { } result)
+                    {
+                        <div class="d-flex align-items-baseline gap-2 mb-1">
+                            <span class="display-6 fw-semibold @StatusBadge.SimilarityTextClass(result.OverallSimilarityPercent)">
+                                @result.OverallSimilarityPercent.ToString("0.00")%
+                            </span>
+                            <span class="text-body-secondary">overall similarity</span>
+                        </div>
+                        <p class="text-body-secondary small mb-0">
+                            Analysed @result.AnalyzedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC by engine @result.EngineVersion.
+                        </p>
+                    }
+                    else if (Model.AnalysisStatus == AnalysisStatus.Failed)
+                    {
+                        <p class="text-danger mb-1">Analysis failed.</p>
+                        <p class="small mb-0">@Model.AnalysisError</p>
+                    }
+                    else
+                    {
+                        <p class="text-body-secondary mb-0">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Analysis @(Model.AnalysisStatus == AnalysisStatus.Processing ? "in progress" : "waiting in the queue").
+                        </p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.Result is { } analysed)
+    {
+        <div class="card border-0 shadow-sm mt-3">
+            <div class="card-header bg-transparent"><h2 class="h6 mb-0">Matched documents</h2></div>
+            @if (analysed.Matches.Count == 0)
+            {
+                <div class="card-body text-body-secondary">No other submission shares text with this one.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Matched submission</th>
+                                <th scope="col">Student</th>
+                                <th scope="col">Files</th>
+                                <th scope="col" class="text-end">Passages</th>
+                                <th scope="col" class="text-end">Similarity</th>
+                                <th scope="col"><span class="visually-hidden">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var match in analysed.Matches)
+                            {
+                                <tr>
+                                    <td>
+                                        <a asp-action="Submission" asp-route-id="@match.MatchedSubmissionId">@match.MatchedSubmissionTitle</a>
+                                    </td>
+                                    <td>@match.MatchedStudentName</td>
+                                    <td class="small">
+                                        @match.OwnFileName
+                                        <span class="text-body-secondary">&harr;</span>
+                                        @match.MatchedFileName
+                                    </td>
+                                    <td class="text-end">@match.PassageCount</td>
+                                    <td class="text-end">@StatusBadge.Similarity(match.SimilarityPercent)</td>
+                                    <td class="text-end">
+                                        <a class="btn btn-sm btn-primary" asp-action="Compare" asp-route-id="@match.MatchId">Compare</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="card border-0 shadow-sm mt-3">
+        <div class="card-header bg-transparent"><h2 class="h6 mb-0">Files</h2></div>
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">File</th>
+                        <th scope="col" class="text-end">Size</th>
+                        <th scope="col">Read by</th>
+                        <th scope="col" class="text-end">Words</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var file in Model.Files)
+                    {
+                        <tr>
+                            <td>
+                                @file.OriginalFileName
+                                <span class="d-block small text-body-secondary">@file.ContentType</span>
+                            </td>
+                            <td class="text-end">@StatusBadge.FormatBytes(file.SizeBytes)</td>
+                            <td>
+                                @(file.ExtractionMethod switch
+                                {
+                                    ExtractionMethod.Native => "Embedded text",
+                                    ExtractionMethod.Ocr => "OCR",
+                                    ExtractionMethod.Mixed => "Embedded text and OCR",
+                                    _ => "Not yet read",
+                                })
+                            </td>
+                            <td class="text-end">@(file.WordCount?.ToString("N0") ?? "-")</td>
+                        </tr>
+                        @if (file.Warnings.Count > 0)
+                        {
+                            <tr class="table-warning">
+                                <td colspan="4" class="small">
+                                    <ul class="mb-0 ps-3">
+                                        @foreach (var warning in file.Warnings)
+                                        {
+                                            <li>@warning</li>
+                                        }
+                                    </ul>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-3">
+        <div class="card-header bg-transparent"><h2 class="h6 mb-0">Review</h2></div>
+        <div class="card-body">
+            @if (Model.Status != SubmissionStatus.PendingReview)
+            {
+                <p class="mb-1">
+                    <span class="badge @StatusBadge.For(Model.Status)">@StatusBadge.Label(Model.Status)</span>
+                </p>
+                @if (!string.IsNullOrWhiteSpace(Model.TeacherComment))
+                {
+                    <p class="mb-0">@Model.TeacherComment</p>
+                }
+            }
+            else
+            {
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <form method="post" asp-action="Approve" asp-route-id="@Model.Id">
+                            <label for="approve-comment" class="form-label small">Comment (optional)</label>
+                            <textarea id="approve-comment" name="Comment" rows="3" class="form-control mb-2"
+                                      maxlength="@Submission.MaxTeacherCommentLength"></textarea>
+                            <button type="submit" class="btn btn-success">Approve</button>
+                        </form>
+                    </div>
+                    <div class="col-md-6">
+                        <form method="post" asp-action="Reject" asp-route-id="@Model.Id">
+                            <label for="reject-comment" class="form-label small">Reason (required)</label>
+                            <textarea id="reject-comment" name="Comment" rows="3" class="form-control mb-2" required
+                                      maxlength="@Submission.MaxTeacherCommentLength"></textarea>
+                            <button type="submit" class="btn btn-danger">Reject</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @{
+        var poller = AnalysisPollerViewModel.For(
+            Url.Action(nameof(AnalysisController.Status), "Analysis")!,
+            [(Model.Id, Model.AnalysisStatus)]);
+    }
+    <partial name="_AnalysisPoller" model="poller" />
+</div>

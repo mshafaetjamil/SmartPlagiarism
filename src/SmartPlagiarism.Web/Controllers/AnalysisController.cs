@@ -22,9 +22,13 @@ public class AnalysisController : Controller
         _analysisService = analysisService;
     }
 
+    /// <param name="returnUrl">
+    /// Where to go back to - the submission page or the dashboard. Only local
+    /// URLs are followed, so the parameter cannot be used as an open redirect.
+    /// </param>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Rerun(int id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Rerun(int id, string? returnUrl, CancellationToken cancellationToken)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var outcome = await _analysisService.RequeueAsync(id, userId, cancellationToken);
@@ -36,7 +40,9 @@ public class AnalysisController : Controller
             _ => "That submission no longer exists.",
         };
 
-        return RedirectToAction(nameof(DashboardController.Teacher), "Dashboard");
+        return Url.IsLocalUrl(returnUrl)
+            ? LocalRedirect(returnUrl)
+            : RedirectToAction(nameof(DashboardController.Teacher), "Dashboard");
     }
 
     /// <inheritdoc cref="SubmissionsController.Status"/>

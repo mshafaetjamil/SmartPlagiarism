@@ -62,6 +62,7 @@ public static class DependencyInjection
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<ISubmissionService, SubmissionService>();
         services.AddScoped<IExtractionService, ExtractionService>();
+        services.AddScoped<IReviewService, ReviewService>();
 
         AddAnalysis(services);
 

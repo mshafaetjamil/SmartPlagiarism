@@ -31,3 +31,36 @@ html {
 .validation-summary-valid {
   display: none;
 }
+
+/* Match viewer (Views/Review/Compare). The pane keeps the document's own line
+   breaks, and is the positioning context match-viewer.js scrolls within. */
+.match-pane {
+  position: relative;
+  max-height: 70vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+
+.match-fragment {
+  background-color: rgba(255, 193, 7, 0.35);
+  color: inherit;
+  border-radius: 0.2rem;
+  padding: 0 0.1rem;
+  cursor: pointer;
+}
+
+.match-fragment:hover {
+  background-color: rgba(255, 193, 7, 0.6);
+}
+
+.match-fragment:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 1px;
+}
+
+.match-fragment.is-active {
+  background-color: rgba(220, 53, 69, 0.3);
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.55);
+}

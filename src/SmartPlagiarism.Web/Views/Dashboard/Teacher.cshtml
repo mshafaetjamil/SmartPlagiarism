@@ -46,7 +46,10 @@
 
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-transparent">
-            <h2 class="h6 mb-0">Recent submissions</h2>
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="h6 mb-0">Recent submissions</h2>
+                <a class="small" asp-controller="Review" asp-action="Index">All submissions &rarr;</a>
+            </div>
         </div>
         @if (Model.RecentSubmissions.Count == 0)
         {
@@ -74,7 +77,9 @@
                         @foreach (var submission in Model.RecentSubmissions)
                         {
                             <tr>
-                                <td>@submission.Title</td>
+                                <td>
+                                    <a asp-controller="Review" asp-action="Submission" asp-route-id="@submission.SubmissionId">@submission.Title</a>
+                                </td>
                                 <td>
                                     @submission.StudentName
                                     <span class="text-body-secondary small d-block">@submission.StudentNumber</span>
@@ -93,9 +98,7 @@
                                     <span class="badge @StatusBadge.For(submission.Status)">@StatusBadge.Label(submission.Status)</span>
                                 </td>
                                 <td class="text-end">
-                                    @(submission.OverallSimilarityPercent.HasValue
-                                        ? $"{submission.OverallSimilarityPercent.Value:0.00}%"
-                                        : "-")
+                                    @StatusBadge.Similarity(submission.OverallSimilarityPercent)
                                 </td>
                                 <td class="text-end">
                                     @if (submission.AnalysisStatus is AnalysisStatus.Completed or AnalysisStatus.Failed)

@@ -39,6 +39,9 @@ public class Submission
 
     public SubmissionStatus Status { get; private set; } = SubmissionStatus.PendingReview;
 
+    /// <summary>Longest teacher comment kept; matches the column.</summary>
+    public const int MaxTeacherCommentLength = 1000;
+
     /// <summary>Set when a teacher approves or rejects. Required for a rejection.</summary>
     public string? TeacherComment { get; private set; }
 

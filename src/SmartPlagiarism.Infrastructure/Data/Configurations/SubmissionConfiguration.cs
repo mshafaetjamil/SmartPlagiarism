@@ -15,7 +15,7 @@ public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
             .HasMaxLength(250);
 
         builder.Property(submission => submission.TeacherComment)
-            .HasMaxLength(1000);
+            .HasMaxLength(Submission.MaxTeacherCommentLength);
 
         builder.Property(submission => submission.AnalysisError)
             .HasMaxLength(Submission.MaxAnalysisErrorLength);
