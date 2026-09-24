@@ -15,7 +15,8 @@ namespace SmartPlagiarism.Tests.Extraction;
 internal static class PptxFixture
 {
     /// <summary>One entry per slide; each entry lists that slide's text boxes.</summary>
-    internal static byte[] Create(IReadOnlyList<IReadOnlyList<string>> slides)
+    /// <param name="latinFont">Font set directly on every run, as picking a font in PowerPoint does.</param>
+    internal static byte[] Create(IReadOnlyList<IReadOnlyList<string>> slides, string? latinFont = null)
     {
         using var stream = new MemoryStream();
 
@@ -30,7 +31,7 @@ internal static class PptxFixture
             foreach (var textBoxes in slides)
             {
                 var slidePart = presentationPart.AddNewPart<SlidePart>();
-                slidePart.Slide = BuildSlide(textBoxes);
+                slidePart.Slide = BuildSlide(textBoxes, latinFont);
 
                 slideIdList.Append(new SlideId
                 {
@@ -45,7 +46,7 @@ internal static class PptxFixture
         return stream.ToArray();
     }
 
-    private static Slide BuildSlide(IReadOnlyList<string> textBoxes)
+    private static Slide BuildSlide(IReadOnlyList<string> textBoxes, string? latinFont)
     {
         var shapeTree = new ShapeTree(
             new NonVisualGroupShapeProperties(
@@ -67,9 +68,16 @@ internal static class PptxFixture
                 new TextBody(
                     new Drawing.BodyProperties(),
                     new Drawing.ListStyle(),
-                    new Drawing.Paragraph(new Drawing.Run(new Drawing.Text(text))))));
+                    new Drawing.Paragraph(BuildRun(text, latinFont)))));
         }
 
         return new Slide(new CommonSlideData(shapeTree), new ColorMapOverride(new Drawing.MasterColorMapping()));
     }
+
+    private static Drawing.Run BuildRun(string text, string? latinFont) =>
+        latinFont is null
+            ? new Drawing.Run(new Drawing.Text(text))
+            : new Drawing.Run(
+                new Drawing.RunProperties(new Drawing.LatinFont { Typeface = latinFont }),
+                new Drawing.Text(text));
 }

@@ -1,5 +1,7 @@
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
+using SmartPlagiarism.Engine.Text;
 using Drawing = DocumentFormat.OpenXml.Drawing;
 
 namespace SmartPlagiarism.Engine.Extraction;
@@ -43,9 +45,12 @@ public sealed class PptxTextExtractor : ITextExtractor
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            var themeFonts = ThemeFonts.Of(slidePart);
+
             var text = string.Join(
                 Environment.NewLine,
-                slidePart.Slide?.Descendants<Drawing.Text>().Select(node => node.Text) ?? []);
+                slidePart.Slide?.Descendants<Drawing.Paragraph>().Select(paragraph => ParagraphText(paragraph, themeFonts))
+                ?? []);
 
             builder.AddSegment(slideNumber++, SegmentKind.Slide, text, TextExtractionMethod.Native);
         }
@@ -56,6 +61,56 @@ public sealed class PptxTextExtractor : ITextExtractor
         }
 
         return builder.Build();
+    }
+
+    /// <summary>
+    /// One paragraph's text, with Bijoy-font runs converted to Unicode. Runs are
+    /// joined without separators: a run boundary can fall mid-word, so putting a
+    /// line break there would split the word.
+    /// </summary>
+    private static string ParagraphText(Drawing.Paragraph paragraph, ThemeFonts themeFonts)
+    {
+        var paragraphFont = LatinFontOf(paragraph.ParagraphProperties?.GetFirstChild<Drawing.DefaultRunProperties>());
+
+        return BijoyConverter.Join(paragraph.Descendants<Drawing.Text>().Select(text =>
+        {
+            var font = LatinFontOf(text.Parent?.GetFirstChild<Drawing.RunProperties>()) ?? paragraphFont;
+            return new FontRun(text.Text, themeFonts.Resolve(font));
+        }));
+    }
+
+    private static string? LatinFontOf(OpenXmlElement? runProperties) =>
+        runProperties?.GetFirstChild<Drawing.LatinFont>()?.Typeface?.Value;
+
+    /// <summary>
+    /// The theme's heading and body fonts. Text with no font of its own is drawn
+    /// in one of these, and "+mj-lt" / "+mn-lt" refer to them by name - so a
+    /// template whose theme font is SutonnyMJ makes all of its text Bijoy.
+    ///
+    /// Text with no font at all is taken to be body text. Titles inherit the
+    /// heading font through the slide master, which is not resolved here; the
+    /// cost is that a Bijoy title in a theme whose only Bijoy font is the heading
+    /// font stays unconverted, which is far better than converting English body
+    /// text that was never Bijoy.
+    /// </summary>
+    private sealed record ThemeFonts(string? Major, string? Minor)
+    {
+        public static ThemeFonts Of(SlidePart slidePart)
+        {
+            var scheme = slidePart.SlideLayoutPart?.SlideMasterPart?.ThemePart?.Theme?.ThemeElements?.FontScheme;
+
+            return new ThemeFonts(
+                scheme?.MajorFont?.LatinFont?.Typeface?.Value,
+                scheme?.MinorFont?.LatinFont?.Typeface?.Value);
+        }
+
+        public string? Resolve(string? typeface) => typeface switch
+        {
+            null => Minor,
+            _ when typeface.StartsWith("+mj", StringComparison.Ordinal) => Major,
+            _ when typeface.StartsWith("+mn", StringComparison.Ordinal) => Minor,
+            _ => typeface,
+        };
     }
 
     private static IEnumerable<SlidePart> EnumerateSlidesInOrder(

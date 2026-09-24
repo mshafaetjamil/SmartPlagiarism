@@ -180,7 +180,8 @@ system uses it for two kinds of page:
   score **0%**. With OCR the same file matched at 80% in testing.
 
 DOCX and PPTX files — Bangla included — store text exactly as typed and never
-need OCR. Without OCR nothing crashes: affected pages use the best text
+need OCR. Legacy **Bijoy** text (SutonnyMJ and the other "MJ" fonts) is
+converted to Unicode automatically in DOCX, PPTX and PDF, with no setup. Without OCR nothing crashes: affected pages use the best text
 available, and a warning on the submission says exactly what was lost.
 
 ### How it runs on each platform

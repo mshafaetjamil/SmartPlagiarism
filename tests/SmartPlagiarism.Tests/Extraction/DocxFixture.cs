@@ -11,7 +11,16 @@ internal static class DocxFixture
     /// Zero-based index of the paragraph to follow with an explicit page break, or
     /// null for a document with no breaks at all.
     /// </param>
-    internal static byte[] Create(IReadOnlyList<string> paragraphs, int? pageBreakAfterParagraph = null)
+    /// <param name="runFont">Font set directly on every run, as picking a font in Word does.</param>
+    /// <param name="normalStyleFont">
+    /// Font of the default paragraph style, as a template sets it; runs then carry
+    /// no font of their own.
+    /// </param>
+    internal static byte[] Create(
+        IReadOnlyList<string> paragraphs,
+        int? pageBreakAfterParagraph = null,
+        string? runFont = null,
+        string? normalStyleFont = null)
     {
         using var stream = new MemoryStream();
 
@@ -20,12 +29,28 @@ internal static class DocxFixture
             var mainPart = word.AddMainDocumentPart();
             var body = new Body();
 
+            if (normalStyleFont is not null)
+            {
+                mainPart.AddNewPart<StyleDefinitionsPart>().Styles = new Styles(new Style(
+                    new StyleName { Val = "Normal" },
+                    new StyleRunProperties(new RunFonts { Ascii = normalStyleFont, HighAnsi = normalStyleFont }))
+                {
+                    Type = StyleValues.Paragraph,
+                    StyleId = "Normal",
+                    Default = true,
+                });
+            }
+
             for (var index = 0; index < paragraphs.Count; index++)
             {
-                var children = new List<OpenXmlElement>
+                var run = new Run(new Text(paragraphs[index]) { Space = SpaceProcessingModeValues.Preserve });
+
+                if (runFont is not null)
                 {
-                    new Run(new Text(paragraphs[index]) { Space = SpaceProcessingModeValues.Preserve }),
-                };
+                    run.PrependChild(new RunProperties(new RunFonts { Ascii = runFont, HighAnsi = runFont }));
+                }
+
+                var children = new List<OpenXmlElement> { run };
 
                 if (pageBreakAfterParagraph == index)
                 {

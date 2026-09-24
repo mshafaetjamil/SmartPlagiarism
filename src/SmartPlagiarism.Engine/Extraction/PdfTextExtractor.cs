@@ -66,7 +66,7 @@ public sealed class PdfTextExtractor : ITextExtractor
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var nativeText = page.Text ?? string.Empty;
+            var nativeText = NativeText(page);
 
             if (CountVisibleCharacters(nativeText) < MinimumNativeCharacters)
             {
@@ -253,6 +253,21 @@ public sealed class PdfTextExtractor : ITextExtractor
         }
 
         return (string.Join("\n", recognized), failures);
+    }
+
+    /// <summary>
+    /// The page's embedded text, with anything set in a Bijoy font converted to
+    /// Unicode. A PDF made from a SutonnyMJ document stores the Latin codes the
+    /// font draws as Bangla, so the text layer reads "Avwg" for আমি; each letter
+    /// records its font, which is what identifies those stretches.
+    /// </summary>
+    private static string NativeText(Page page)
+    {
+        var letters = page.Letters;
+
+        return letters.Any(letter => BijoyConverter.IsBijoyFont(letter.FontName))
+            ? BijoyConverter.Join(letters.Select(letter => new FontRun(letter.Value, letter.FontName)))
+            : page.Text ?? string.Empty;
     }
 
     /// <summary>

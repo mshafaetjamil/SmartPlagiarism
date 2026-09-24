@@ -45,8 +45,9 @@ public readonly record struct BengaliTextAssessment(int BengaliWords, int Suspec
 /// </summary>
 public static class BengaliText
 {
-    private const char Virama = '\u09CD';
-    private const char Nukta = '\u09BC';
+    internal const char Virama = '\u09CD';
+    internal const char Nukta = '\u09BC';
+    private const char Chandrabindu = '\u0981';
     private const char SignAa = '\u09BE';
     private const char SignE = '\u09C7';
     private const char SignO = '\u09CB';
@@ -89,11 +90,16 @@ public static class BengaliText
     {
         ArgumentNullException.ThrowIfNull(text);
 
-        if (!IsInDrawingOrder(text))
-        {
-            return text;
-        }
+        return IsInDrawingOrder(text) ? MoveVowelSignsAfterConsonants(text) : text;
+    }
 
+    /// <summary>
+    /// The unconditional part of <see cref="RepairDrawingOrder"/>, for text known
+    /// to be in drawing order - such as converted Bijoy, which is always typed
+    /// that way.
+    /// </summary>
+    internal static string MoveVowelSignsAfterConsonants(string text)
+    {
         var repaired = new StringBuilder(text.Length);
         var index = 0;
 
@@ -110,27 +116,53 @@ public static class BengaliText
 
             var clusterEnd = EndOfConsonantCluster(text, index + 1);
             repaired.Append(text, index + 1, clusterEnd - index - 1);
-            index = clusterEnd;
-
-            // ো and ৌ are drawn in two halves around the consonant: ে before it,
-            // া or ৗ after. Rejoin them into the single vowel sign that was typed.
-            if (character == SignE && index < text.Length && text[index] == SignAa)
-            {
-                repaired.Append(SignO);
-                index++;
-            }
-            else if (character == SignE && index < text.Length && text[index] == AuLengthMark)
-            {
-                repaired.Append(SignAu);
-                index++;
-            }
-            else
-            {
-                repaired.Append(character);
-            }
+            index = AppendMovedSign(repaired, character, text, clusterEnd);
         }
 
         return repaired.ToString();
+    }
+
+    /// <summary>
+    /// Appends a pre-base sign that has been moved past its consonants.
+    ///
+    /// ো and ৌ are drawn in two halves around the consonant - ে before it, া or ৗ
+    /// after - so a ে followed by either half is rejoined into the single sign
+    /// that was typed. A chandrabindu sometimes sits between the consonant and the
+    /// second half; it belongs after the whole sign.
+    /// </summary>
+    /// <returns>The index after everything consumed from <paramref name="text"/>.</returns>
+    private static int AppendMovedSign(StringBuilder repaired, char sign, string text, int index)
+    {
+        if (sign != SignE)
+        {
+            repaired.Append(sign);
+            return index;
+        }
+
+        var skipped = index + 1 < text.Length && text[index] == Chandrabindu ? 1 : 0;
+        var secondHalf = index + skipped < text.Length ? text[index + skipped] : '\0';
+
+        var joined = secondHalf switch
+        {
+            SignAa => SignO,
+            AuLengthMark => SignAu,
+            _ => '\0',
+        };
+
+        if (joined == '\0')
+        {
+            repaired.Append(sign);
+            return index;
+        }
+
+        repaired.Append(joined);
+
+        if (skipped == 1)
+        {
+            repaired.Append(Chandrabindu);
+        }
+
+        return index + skipped + 1;
     }
 
     /// <summary>
@@ -260,11 +292,11 @@ public static class BengaliText
 
     private static bool IsPreBaseVowelSign(char character) => character is '\u09BF' or '\u09C7' or '\u09C8';
 
-    private static bool IsConsonant(char character) =>
+    internal static bool IsConsonant(char character) =>
         character is (>= '\u0995' and <= '\u09B9') or '\u09CE' or '\u09DC' or '\u09DD' or '\u09DF' or '\u09F0' or '\u09F1';
 
     /// <summary>Signs that attach to a preceding letter and cannot start a word.</summary>
-    private static bool IsDependentSign(char character) =>
+    internal static bool IsDependentSign(char character) =>
         character is (>= '\u0981' and <= '\u0983')
             or Nukta
             or (>= '\u09BE' and <= '\u09CD')
