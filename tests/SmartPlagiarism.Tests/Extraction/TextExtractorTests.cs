@@ -12,6 +12,7 @@ namespace SmartPlagiarism.Tests.Extraction;
 public class TextExtractorTests
 {
     private static readonly IOcrService s_noOcr = new NullOcrService("no tessdata in tests");
+    private static readonly IPdfPageRenderer s_renderer = new PdfiumPageRenderer();
 
     // ---------------- PDF ----------------
 
@@ -21,7 +22,7 @@ public class TextExtractorTests
         var pdf = PdfFixture.Create(
             "Winnowing based similarity detection",
             "Chapter two discusses the fingerprint index");
-        var extractor = new PdfTextExtractor(s_noOcr);
+        var extractor = new PdfTextExtractor(s_noOcr, s_renderer);
 
         using var stream = new MemoryStream(pdf);
         var result = await extractor.ExtractAsync(stream);
@@ -39,7 +40,7 @@ public class TextExtractorTests
     public async Task Pdf_SegmentOffsetsPointAtTheRightPlaceInFullText()
     {
         var pdf = PdfFixture.Create("First page body", "Second page body");
-        var extractor = new PdfTextExtractor(s_noOcr);
+        var extractor = new PdfTextExtractor(s_noOcr, s_renderer);
 
         using var stream = new MemoryStream(pdf);
         var result = await extractor.ExtractAsync(stream);
@@ -56,7 +57,7 @@ public class TextExtractorTests
     {
         // An empty page is what a scanned page looks like: no text layer at all.
         var pdf = PdfFixture.Create(string.Empty);
-        var extractor = new PdfTextExtractor(s_noOcr);
+        var extractor = new PdfTextExtractor(s_noOcr, s_renderer);
 
         using var stream = new MemoryStream(pdf);
         var result = await extractor.ExtractAsync(stream);
@@ -72,7 +73,7 @@ public class TextExtractorTests
     {
         // Comfortably under the twenty-character threshold.
         var pdf = PdfFixture.Create("p. 7");
-        var extractor = new PdfTextExtractor(s_noOcr);
+        var extractor = new PdfTextExtractor(s_noOcr, s_renderer);
 
         using var stream = new MemoryStream(pdf);
         var result = await extractor.ExtractAsync(stream);
@@ -85,7 +86,7 @@ public class TextExtractorTests
     public async Task Pdf_MixedPages_OnlyWarnsAboutTheEmptyOne()
     {
         var pdf = PdfFixture.Create("A page with a genuine paragraph of body text on it", string.Empty);
-        var extractor = new PdfTextExtractor(s_noOcr);
+        var extractor = new PdfTextExtractor(s_noOcr, s_renderer);
 
         using var stream = new MemoryStream(pdf);
         var result = await extractor.ExtractAsync(stream);

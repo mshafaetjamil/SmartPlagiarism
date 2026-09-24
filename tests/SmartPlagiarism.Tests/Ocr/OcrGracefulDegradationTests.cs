@@ -23,21 +23,21 @@ public class OcrGracefulDegradationTests
         });
 
         ocr.IsAvailable.Should().BeFalse();
-        ocr.UnavailableReason.Should().Contain("tessdata").And.Contain("README");
+        ocr.UnavailableReason.Should().Contain("tessdata").And.Contain("SETUP.md");
     }
 
     [Fact]
-    public void TessDataDirectoryWithoutTheLanguageFile_ReportsWhichFileIsMissing()
+    public void TessDataDirectoryWithoutTheLanguageFiles_ReportsEveryMissingFile()
     {
         var emptyTessData = Path.Combine(Path.GetTempPath(), "tessdata-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(emptyTessData);
 
         try
         {
-            using var ocr = Service(new OcrOptions { Enabled = true, TessDataPath = emptyTessData });
+            using var ocr = Service(new OcrOptions { Enabled = true, TessDataPath = emptyTessData, Language = "ben+eng" });
 
             ocr.IsAvailable.Should().BeFalse();
-            ocr.UnavailableReason.Should().Contain("eng.traineddata");
+            ocr.UnavailableReason.Should().Contain("ben.traineddata").And.Contain("eng.traineddata");
         }
         finally
         {

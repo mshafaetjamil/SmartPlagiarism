@@ -24,6 +24,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      Real documents that cannot be built programmatically: a Bangla PDF's damage
+      comes from the shaping engine that produced it, which PdfPig's builder does
+      not reproduce.
+    -->
+    <None Include="Extraction\Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\SmartPlagiarism.Core\SmartPlagiarism.Core.csproj" />
     <ProjectReference Include="..\..\src\SmartPlagiarism.Engine\SmartPlagiarism.Engine.csproj" />
     <ProjectReference Include="..\..\src\SmartPlagiarism.Infrastructure\SmartPlagiarism.Infrastructure.csproj" />

@@ -82,11 +82,17 @@ public static class DependencyInjection
                 }
             });
 
-        // Singleton: TesseractOcrService probes for the native library once and
-        // holds a single engine instance, serialising access internally.
+        // Singleton: each service probes its platform once and serialises access
+        // internally. The in-process library only loads on Windows; the
+        // command-line program covers macOS and Linux.
         services.AddSingleton<IOcrService>(provider =>
-            new TesseractOcrService(provider.GetRequiredService<IOptions<OcrOptions>>().Value));
+        {
+            var options = provider.GetRequiredService<IOptions<OcrOptions>>().Value;
 
+            return new FallbackOcrService([new TesseractOcrService(options), new TesseractCliOcrService(options)]);
+        });
+
+        services.AddSingleton<IPdfPageRenderer, PdfiumPageRenderer>();
         services.AddSingleton<ITextExtractor, PdfTextExtractor>();
         services.AddSingleton<ITextExtractor, DocxTextExtractor>();
         services.AddSingleton<ITextExtractor, PptxTextExtractor>();

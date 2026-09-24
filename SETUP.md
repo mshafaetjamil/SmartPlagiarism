@@ -168,54 +168,86 @@ dotnet run --project src/SmartPlagiarism.Web --launch-profile https
 
 ---
 
-## 5. OCR (optional — safe to skip)
+## 5. OCR (needed for Bangla PDFs and scanned pages)
 
-OCR only affects **scanned PDF pages** (a page with no text layer). PDFs, DOCX and
-PPTX files with real text are extracted without it. Skipping OCR costs you nothing
-except that scanned pages come back empty with a warning; nothing crashes and no
-analysis fails.
+OCR reads what a PDF page *shows* rather than the text stored inside it. The
+system uses it for two kinds of page:
 
-### Support by platform
+- **Scanned pages** — there is no stored text at all.
+- **Bangla PDF pages** — the stored text is usually damaged: PDF fonts have no
+  Unicode mapping for conjuncts (ক্ত, ন্ত, র্), and vowel signs like ি and ে come
+  out in the wrong order. Without OCR, a Bangla PDF copied word for word can
+  score **0%**. With OCR the same file matched at 80% in testing.
 
-The `Tesseract` NuGet package ships native binaries for **Windows only**
-(`x64/tesseract50.dll`). That is a fact about the package, not a limitation of
-this project.
+DOCX and PPTX files — Bangla included — store text exactly as typed and never
+need OCR. Without OCR nothing crashes: affected pages use the best text
+available, and a warning on the submission says exactly what was lost.
 
-| OS | Status |
-| --- | --- |
-| **Windows** | Works. Download the language data (below) and you are done. |
-| **Linux** | Needs system Tesseract libraries installed alongside the language data. Untested by this project. |
-| **macOS** | Not supported by the package — no `.dylib` is shipped. The app reports OCR as unavailable and carries on. |
+### How it runs on each platform
 
-### Enable it (Windows)
+The app tries the in-process Tesseract library first and falls back to the
+`tesseract` command-line program. The library ships for **Windows only**; the
+program installs everywhere in one command. Pages are drawn for OCR by PDFium
+(the `PDFtoImage` package), which ships for Windows, Linux and macOS.
 
-```powershell
-mkdir src\SmartPlagiarism.Web\App_Data\tessdata
-curl -L -o src\SmartPlagiarism.Web\App_Data\tessdata\eng.traineddata `
-  https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
-```
-
-### Enable it (Linux, best effort)
+### 1. Install Tesseract (macOS and Linux)
 
 ```bash
-sudo apt install -y tesseract-ocr libtesseract-dev libleptonica-dev
-mkdir -p src/SmartPlagiarism.Web/App_Data/tessdata
-curl -L -o src/SmartPlagiarism.Web/App_Data/tessdata/eng.traineddata \
-  https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
+brew install tesseract                     # macOS
+sudo apt install -y tesseract-ocr          # Ubuntu/Debian
 ```
 
-The .NET wrapper looks for specific library filenames, so this may still need
-symlinks. If it does not initialise, the app logs the reason and continues.
+Windows needs no install — the NuGet package carries the library.
 
-### Turn it off explicitly
+### 2. Download the Bangla and English language data (all platforms)
+
+The app reads `ben+eng` (Bangla and English on the same page) from
+`src/SmartPlagiarism.Web/App_Data/tessdata`. Use the `tessdata_best` models —
+the smaller `tessdata_fast` ones are noticeably worse at Bangla.
+
+```bash
+mkdir -p src/SmartPlagiarism.Web/App_Data/tessdata
+for lang in ben eng; do
+  curl -L -o src/SmartPlagiarism.Web/App_Data/tessdata/$lang.traineddata \
+    https://github.com/tesseract-ocr/tessdata_best/raw/main/$lang.traineddata
+done
+```
+
+```powershell
+# Windows (PowerShell)
+mkdir src\SmartPlagiarism.Web\App_Data\tessdata
+foreach ($lang in "ben", "eng") {
+  curl.exe -L -o "src\SmartPlagiarism.Web\App_Data\tessdata\$lang.traineddata" `
+    "https://github.com/tesseract-ocr/tessdata_best/raw/main/$lang.traineddata"
+}
+```
+
+`App_Data/` is git-ignored, so every machine downloads these once.
+
+### 3. Check it works
+
+```bash
+dotnet test --filter WithRealOcr --logger "console;verbosity=detailed"
+```
+
+The test prints the OCR'd Bangla text and its similarity score. If it prints
+`Skipped: OCR unavailable here (...)`, the reason in brackets says which step is
+missing.
+
+### Settings
 
 ```jsonc
-// appsettings.Development.json
-"Ocr": { "Enabled": false }
+// appsettings.json - the defaults
+"Ocr": {
+  "Enabled": true,
+  "TessDataPath": "App_Data/tessdata",
+  "Language": "ben+eng",
+  "TesseractExecutable": ""   // empty = search PATH, Homebrew and Program Files
+}
 ```
 
-Whatever the outcome, check the startup log — the exact reason OCR is unavailable
-is written there and recorded against every affected page.
+Set `"Enabled": false` to switch OCR off. Whenever OCR cannot run, the reason is
+recorded as a warning against every page it would have read.
 
 ---
 

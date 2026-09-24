@@ -37,7 +37,7 @@ public sealed class ExtractorFactory : IExtractorFactory
     /// dependency-injection container.
     /// </summary>
     public static ExtractorFactory CreateDefault(IOcrService ocr) =>
-        new([new PdfTextExtractor(ocr), new DocxTextExtractor(), new PptxTextExtractor()]);
+        new([new PdfTextExtractor(ocr, new PdfiumPageRenderer()), new DocxTextExtractor(), new PptxTextExtractor()]);
 
     public IReadOnlyCollection<string> SupportedExtensions => _byExtension.Keys;
 

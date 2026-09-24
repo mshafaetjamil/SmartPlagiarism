@@ -10,7 +10,10 @@ plagiarism engine, and REST APIs for future university-portal integration.
 - SQL Server + Entity Framework Core (code-first migrations)
 - ASP.NET Core Identity (role-based: Admin, Teacher, Student)
 - Razor Views + Bootstrap 5 (no SPA framework)
-- PdfPig (PDF text extraction), Open XML SDK (DOCX/PPTX), Tesseract (OCR fallback)
+- PdfPig (PDF text extraction), Open XML SDK (DOCX/PPTX), Tesseract (OCR: in-process
+  library on Windows, `tesseract` CLI elsewhere; `ben+eng` language data),
+  PDFtoImage/PDFium (drawing PDF pages for OCR — needed because Bangla PDF text
+  layers are routinely damaged)
 - QuestPDF (report generation)
 - xUnit + FluentAssertions for tests
 
@@ -31,7 +34,7 @@ plagiarism engine, and REST APIs for future university-portal integration.
 
 Dependency direction: Web → Core ← Infrastructure; Engine referenced by Core
 through interfaces only. Engine references nothing but the BCL and its own
-NuGet packages (Tesseract, PdfPig, Open XML SDK).
+NuGet packages (Tesseract, PdfPig, Open XML SDK, PDFtoImage).
 
 ## Architecture rules
 

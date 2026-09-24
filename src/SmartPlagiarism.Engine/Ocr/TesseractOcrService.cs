@@ -91,16 +91,18 @@ public sealed class TesseractOcrService : IOcrService, IDisposable
         if (string.IsNullOrWhiteSpace(_options.TessDataPath) || !Directory.Exists(_options.TessDataPath))
         {
             _unavailableReason =
-                $"the tessdata directory '{_options.TessDataPath}' does not exist (see the README for setup)";
+                $"the tessdata directory '{_options.TessDataPath}' does not exist (see SETUP.md)";
             return null;
         }
 
-        var trainedDataFile = Path.Combine(_options.TessDataPath, $"{_options.Language}.traineddata");
+        var missing = _options.Languages
+            .Where(language => !File.Exists(Path.Combine(_options.TessDataPath, $"{language}.traineddata")))
+            .Select(language => $"'{language}.traineddata'")
+            .ToList();
 
-        if (!File.Exists(trainedDataFile))
+        if (missing.Count > 0)
         {
-            _unavailableReason =
-                $"'{_options.Language}.traineddata' is missing from '{_options.TessDataPath}' (see the README for setup)";
+            _unavailableReason = $"{string.Join(", ", missing)} missing from '{_options.TessDataPath}' (see SETUP.md)";
             return null;
         }
 
