@@ -24,6 +24,15 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
+    <PackageReference Include="QuestPDF" Version="2026.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Noto Sans Bengali (SIL OFL 1.1, licence alongside) is embedded so reports
+      render Bangla identically on every server, fonts installed or not.
+    -->
+    <EmbeddedResource Include="Reports\Fonts\*.ttf" />
   </ItemGroup>
 
 </Project>

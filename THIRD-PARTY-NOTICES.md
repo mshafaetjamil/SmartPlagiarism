@@ -1,8 +1,18 @@
 # Third-party notices
 
-Code or data adapted from other projects, with the notices their licenses
-require. NuGet packages are not listed here; their licenses ship with the
-packages.
+Code, data and fonts adapted from or bundled with this project, with the
+notices their licenses require. NuGet packages are not listed here; their
+licenses ship with the packages.
+
+## Noto Sans Bengali
+
+Used for: Bangla text in generated PDF reports. The Regular and Bold TrueType
+files are embedded in `SmartPlagiarism.Infrastructure` from
+`src/SmartPlagiarism.Infrastructure/Reports/Fonts/`, where the full SIL Open
+Font License 1.1 is kept alongside them (`OFL.txt`).
+
+Source: https://github.com/notofonts/bengali -
+Copyright 2022 The Noto Project Authors.
 
 ## bijoy-to-unicode-file-converter 1.2
 

@@ -5,6 +5,7 @@ using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.DTOs.Submissions;
 using SmartPlagiarism.Core.Files;
 using SmartPlagiarism.Core.Identity;
+using SmartPlagiarism.Web.Authorization;
 using SmartPlagiarism.Web.Models.Analysis;
 using SmartPlagiarism.Web.Models.Submissions;
 
@@ -18,10 +19,17 @@ namespace SmartPlagiarism.Web.Controllers;
 public class SubmissionsController : Controller
 {
     private readonly ISubmissionService _submissionService;
+    private readonly IReportService _reportService;
+    private readonly IAuthorizationService _authorization;
 
-    public SubmissionsController(ISubmissionService submissionService)
+    public SubmissionsController(
+        ISubmissionService submissionService,
+        IReportService reportService,
+        IAuthorizationService authorization)
     {
         _submissionService = submissionService;
+        _reportService = reportService;
+        _authorization = authorization;
     }
 
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -99,6 +107,11 @@ public class SubmissionsController : Controller
     [HttpGet]
     public async Task<IActionResult> Details(int id, CancellationToken cancellationToken)
     {
+        if (!await CanViewAsync(id))
+        {
+            return NotFound();
+        }
+
         var submission = await _submissionService.GetDetailForStudentAsync(id, CurrentUserId, cancellationToken);
 
         // Null covers both "no such submission" and "not yours" - the student cannot
@@ -109,6 +122,25 @@ public class SubmissionsController : Controller
         }
 
         return View(submission);
+    }
+
+    /// <summary>The student's copy of the originality report, as a PDF download.</summary>
+    [HttpGet]
+    public async Task<IActionResult> Report(int id, CancellationToken cancellationToken)
+    {
+        if (!await CanViewAsync(id))
+        {
+            return NotFound();
+        }
+
+        // The service checks access again itself; a student's copy never names
+        // or quotes the other students matched.
+        var report = await _reportService.GetSubmissionReportAsync(
+            id,
+            new SubmissionViewer(CurrentUserId, IsStaff: false),
+            cancellationToken);
+
+        return report is null ? NotFound() : File(report.Content, report.ContentType, report.FileName);
     }
 
     /// <summary>
@@ -124,6 +156,16 @@ public class SubmissionsController : Controller
 
         return Json(AnalysisStatusResponse.From(statuses));
     }
+
+    /// <summary>
+    /// The resource check for "your own submissions only". Not found rather than
+    /// forbidden, so a student cannot tell another student's id from a missing one.
+    /// </summary>
+    private async Task<bool> CanViewAsync(int submissionId) =>
+        (await _authorization.AuthorizeAsync(
+            User,
+            new SubmissionResource(submissionId),
+            AuthorizationPolicies.CanViewSubmission)).Succeeded;
 
     private async Task<CreateSubmissionViewModel> BuildFormAsync(
         CreateSubmissionViewModel model,

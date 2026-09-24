@@ -1,0 +1,167 @@
+@using System.Globalization
+@using SmartPlagiarism.Core.Enums
+@using SmartPlagiarism.Core.Review
+@model SmartPlagiarism.Core.DTOs.Admin.SystemStatisticsDto
+@{
+    ViewData["Title"] = "Statistics";
+
+    // Bars are scaled to the largest value in their own chart.
+    string Width(int value, int max) =>
+        (max == 0 ? 0 : value * 100.0 / max).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+
+    var busiestMonth = Model.SubmissionsByMonth.Count == 0 ? 0 : Model.SubmissionsByMonth.Max(month => month.Count);
+    var mostFiles = Model.ExtractionMethods.Count == 0 ? 0 : Model.ExtractionMethods.Max(method => method.FileCount);
+    var largestBand = Model.SimilarityBands.Count == 0 ? 0 : Model.SimilarityBands.Max(band => band.Count);
+}
+
+<div class="container py-4">
+    <h1 class="h3 mb-3">Statistics</h1>
+
+    <partial name="_StatusMessage" />
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm"><div class="card-body">
+                <div class="text-body-secondary small text-uppercase">Submissions</div>
+                <div class="display-6">@Model.TotalSubmissions</div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm"><div class="card-body">
+                <div class="text-body-secondary small text-uppercase">Analysed</div>
+                <div class="display-6">@Model.AnalysedSubmissions</div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm"><div class="card-body">
+                <div class="text-body-secondary small text-uppercase">Average similarity</div>
+                <div class="display-6">
+                    @StatusBadge.Similarity(Model.AverageSimilarityPercent is { } average ? (decimal)Math.Round(average, 2) : null)
+                </div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-7">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-transparent"><h2 class="h6 mb-0">Submissions over the last @Model.SubmissionsByMonth.Count months</h2></div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless mb-0 align-middle">
+                        <caption class="visually-hidden">Submissions and average similarity per month</caption>
+                        <thead class="visually-hidden">
+                            <tr><th scope="col">Month</th><th scope="col">Submissions</th><th scope="col">Average similarity</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var month in Model.SubmissionsByMonth)
+                            {
+                                <tr>
+                                    <th scope="row" class="fw-normal small text-nowrap" style="width: 5.5rem;">
+                                        @(new DateTime(month.Year, month.Month, 1).ToString("MMM yyyy", CultureInfo.InvariantCulture))
+                                    </th>
+                                    <td>
+                                        <div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill bg-primary" style="width: @Width(month.Count, busiestMonth)"></div></div>
+                                    </td>
+                                    <td class="text-end small" style="width: 3rem;">@month.Count</td>
+                                    <td class="text-end" style="width: 5.5rem;">
+                                        @StatusBadge.Similarity(month.AverageSimilarityPercent is { } monthly ? (decimal)Math.Round(monthly, 2) : null)
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5 d-flex flex-column gap-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent"><h2 class="h6 mb-0">Similarity bands</h2></div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless mb-0 align-middle">
+                        <tbody>
+                            @foreach (var band in Model.SimilarityBands)
+                            {
+                                var (label, colour) = band.Band switch
+                                {
+                                    SimilarityBand.Low => ("Below 20%", "bg-success"),
+                                    SimilarityBand.Moderate => ("20% to 50%", "bg-warning"),
+                                    _ => ("Above 50%", "bg-danger"),
+                                };
+                                <tr>
+                                    <th scope="row" class="fw-normal small text-nowrap" style="width: 6rem;">@label</th>
+                                    <td><div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill @colour" style="width: @Width(band.Count, largestBand)"></div></div></td>
+                                    <td class="text-end small" style="width: 3rem;">@band.Count</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent"><h2 class="h6 mb-0">How files were read</h2></div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless mb-0 align-middle">
+                        <tbody>
+                            @foreach (var method in Model.ExtractionMethods)
+                            {
+                                var label = method.Method switch
+                                {
+                                    ExtractionMethod.Native => "Embedded text",
+                                    ExtractionMethod.Ocr => "OCR",
+                                    _ => "Text and OCR",
+                                };
+                                <tr>
+                                    <th scope="row" class="fw-normal small text-nowrap" style="width: 6rem;">@label</th>
+                                    <td><div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill bg-info" style="width: @Width(method.FileCount, mostFiles)"></div></div></td>
+                                    <td class="text-end small" style="width: 3rem;">@method.FileCount</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent"><h2 class="h6 mb-0">Failed analyses</h2></div>
+        @if (Model.FailedAnalyses.Count == 0)
+        {
+            <div class="card-body text-body-secondary">No analysis has failed.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Submission</th>
+                            <th scope="col">Student</th>
+                            <th scope="col">Submitted</th>
+                            <th scope="col">Reason</th>
+                            <th scope="col"><span class="visually-hidden">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var failed in Model.FailedAnalyses)
+                        {
+                            <tr>
+                                <td>#@failed.SubmissionId &middot; @failed.Title</td>
+                                <td>@failed.StudentName</td>
+                                <td class="text-nowrap">@failed.SubmittedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                                <td class="small">@failed.Reason</td>
+                                <td class="text-end">
+                                    <form method="post" asp-action="Retry" asp-route-id="@failed.SubmissionId">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Retry</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

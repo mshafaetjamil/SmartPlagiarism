@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using SmartPlagiarism.Core.Identity;
 using SmartPlagiarism.Infrastructure;
+using SmartPlagiarism.Web.Authorization;
 using SmartPlagiarism.Web.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,7 +28,13 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthorizationPolicies.AdminOnly, policy => policy.RequireRole(ApplicationRoles.Admin));
     options.AddPolicy(AuthorizationPolicies.TeacherOnly, policy => policy.RequireRole(ApplicationRoles.Teacher));
     options.AddPolicy(AuthorizationPolicies.StudentOnly, policy => policy.RequireRole(ApplicationRoles.Student));
+    options.AddPolicy(
+        AuthorizationPolicies.CanViewSubmission,
+        policy => policy.RequireAuthenticatedUser().AddRequirements(new SubmissionAccessRequirement()));
 });
+
+// Scoped: it asks the database, through the request's DbContext.
+builder.Services.AddScoped<IAuthorizationHandler, SubmissionAccessHandler>();
 
 // Covers both the MVC views and the attribute-routed /api/v1 controllers.
 builder.Services.AddControllersWithViews();

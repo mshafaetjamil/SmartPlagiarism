@@ -3,6 +3,9 @@ namespace SmartPlagiarism.Core.Entities;
 /// <summary>A course offered by a department. Submissions are made against a course.</summary>
 public class Course
 {
+    public const int MaxCodeLength = 32;
+    public const int MaxTitleLength = 200;
+
     public int Id { get; set; }
 
     public int DepartmentId { get; set; }

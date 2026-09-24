@@ -12,11 +12,11 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
 
         builder.Property(department => department.Code)
             .IsRequired()
-            .HasMaxLength(16);
+            .HasMaxLength(Department.MaxCodeLength);
 
         builder.Property(department => department.Name)
             .IsRequired()
-            .HasMaxLength(128);
+            .HasMaxLength(Department.MaxNameLength);
 
         builder.HasIndex(department => department.Code).IsUnique();
         builder.HasIndex(department => department.Name).IsUnique();

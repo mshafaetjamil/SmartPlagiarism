@@ -3,6 +3,7 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.Auditing;
+using SmartPlagiarism.Core.DTOs;
 using SmartPlagiarism.Core.DTOs.Review;
 using SmartPlagiarism.Core.Entities;
 using SmartPlagiarism.Core.Enums;
@@ -33,8 +34,7 @@ public class ReviewService : IReviewService
         var filtered = Filter(_context.Submissions.AsNoTracking(), query);
 
         var totalCount = await filtered.CountAsync(cancellationToken);
-        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)ReviewSubmissionQuery.PageSize));
-        var page = Math.Clamp(query.Page, 1, totalPages);
+        var page = PagedResult<ReviewSubmissionListItemDto>.ClampPage(query.Page, totalCount, ReviewSubmissionQuery.PageSize);
 
         var items = await Sort(filtered, query.Sort, query.Descending)
             .Skip((page - 1) * ReviewSubmissionQuery.PageSize)

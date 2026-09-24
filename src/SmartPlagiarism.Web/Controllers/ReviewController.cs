@@ -17,11 +17,16 @@ public class ReviewController : Controller
 {
     private readonly IReviewService _reviewService;
     private readonly ISubmissionService _submissionService;
+    private readonly IReportService _reportService;
 
-    public ReviewController(IReviewService reviewService, ISubmissionService submissionService)
+    public ReviewController(
+        IReviewService reviewService,
+        ISubmissionService submissionService,
+        IReportService reportService)
     {
         _reviewService = reviewService;
         _submissionService = submissionService;
+        _reportService = reportService;
     }
 
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -51,6 +56,18 @@ public class ReviewController : Controller
         var comparison = await _reviewService.GetComparisonAsync(id, cancellationToken);
 
         return comparison is null ? NotFound() : View(comparison);
+    }
+
+    /// <summary>The staff copy of the originality report, naming and quoting every match.</summary>
+    [HttpGet]
+    public async Task<IActionResult> Report(int id, CancellationToken cancellationToken)
+    {
+        var report = await _reportService.GetSubmissionReportAsync(
+            id,
+            new SubmissionViewer(CurrentUserId, IsStaff: true),
+            cancellationToken);
+
+        return report is null ? NotFound() : File(report.Content, report.ContentType, report.FileName);
     }
 
     [HttpPost]

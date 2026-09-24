@@ -13,15 +13,16 @@
         </ol>
     </nav>
 
-    @if (TempData["StatusMessage"] is string statusMessage)
-    {
-        <div class="alert alert-success" role="alert">@statusMessage</div>
-    }
+    <partial name="_StatusMessage" />
 
     <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
         <h1 class="h3 mb-0 me-2">@Model.Title</h1>
         <span class="badge @StatusBadge.For(Model.AnalysisStatus)">@Model.AnalysisStatus</span>
         <span class="badge @StatusBadge.For(Model.Status)">@StatusBadge.Label(Model.Status)</span>
+        @if (Model.AnalysisStatus is AnalysisStatus.Completed or AnalysisStatus.Failed)
+        {
+            <a class="btn btn-sm btn-outline-primary ms-auto" asp-action="Report" asp-route-id="@Model.Id">Download report (PDF)</a>
+        }
     </div>
 
     <div class="row g-3">

@@ -12,7 +12,7 @@ public class SemesterConfiguration : IEntityTypeConfiguration<Semester>
 
         builder.Property(semester => semester.Name)
             .IsRequired()
-            .HasMaxLength(64);
+            .HasMaxLength(Semester.MaxNameLength);
 
         builder.HasIndex(semester => semester.Name).IsUnique();
 

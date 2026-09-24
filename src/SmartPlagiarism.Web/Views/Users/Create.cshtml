@@ -1,0 +1,88 @@
+@using SmartPlagiarism.Core.Identity
+@model SmartPlagiarism.Web.Models.Admin.CreateUserViewModel
+@{
+    ViewData["Title"] = "New user";
+}
+
+<div class="container py-4" style="max-width: 720px;">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a asp-action="Index">Users</a></li>
+            <li class="breadcrumb-item active" aria-current="page">New user</li>
+        </ol>
+    </nav>
+
+    <h1 class="h3 mb-3">New user</h1>
+
+    <form method="post" asp-action="Create" class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger small"></div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="Email" class="form-label"></label>
+                    <input asp-for="Email" class="form-control" autocomplete="off" />
+                    <span asp-validation-for="Email" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="FullName" class="form-label"></label>
+                    <input asp-for="FullName" class="form-control" />
+                    <span asp-validation-for="FullName" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Password" class="form-label"></label>
+                    <input asp-for="Password" class="form-control" autocomplete="new-password" />
+                    <span asp-validation-for="Password" class="text-danger small"></span>
+                    <div class="form-text">At least 6 characters, with upper and lower case, a digit and a symbol.</div>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="ConfirmPassword" class="form-label"></label>
+                    <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+                    <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Role" class="form-label"></label>
+                    <select asp-for="Role" class="form-select" data-role-select>
+                        @foreach (var role in ApplicationRoles.All)
+                        {
+                            <option value="@role">@role</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6" data-for-roles="@ApplicationRoles.Student @ApplicationRoles.Teacher">
+                    <label asp-for="DepartmentId" class="form-label"></label>
+                    <select asp-for="DepartmentId" class="form-select">
+                        <option value="">Choose a department...</option>
+                        @foreach (var department in Model.Departments)
+                        {
+                            <option value="@department.Id">@department.Code &ndash; @department.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6" data-for-roles="@ApplicationRoles.Student">
+                    <label asp-for="StudentNumber" class="form-label"></label>
+                    <input asp-for="StudentNumber" class="form-control" />
+                    <span asp-validation-for="StudentNumber" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6" data-for-roles="@ApplicationRoles.Student">
+                    <label asp-for="EnrollmentYear" class="form-label"></label>
+                    <input asp-for="EnrollmentYear" class="form-control" />
+                    <span asp-validation-for="EnrollmentYear" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6" data-for-roles="@ApplicationRoles.Teacher">
+                    <label asp-for="EmployeeNumber" class="form-label"></label>
+                    <input asp-for="EmployeeNumber" class="form-control" />
+                    <span asp-validation-for="EmployeeNumber" class="text-danger small"></span>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer bg-transparent d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Create account</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

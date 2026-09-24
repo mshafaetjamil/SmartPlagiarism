@@ -10,10 +10,7 @@
         <a class="btn btn-primary" asp-action="Create">New submission</a>
     </div>
 
-    @if (TempData["StatusMessage"] is string statusMessage)
-    {
-        <div class="alert alert-success" role="alert">@statusMessage</div>
-    }
+    <partial name="_StatusMessage" />
 
     @if (Model.Count == 0)
     {

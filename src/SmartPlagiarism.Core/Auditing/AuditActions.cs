@@ -9,4 +9,10 @@ public static class AuditActions
     public const string AnalysisRequeued = "AnalysisRequeued";
     public const string SubmissionApproved = "SubmissionApproved";
     public const string SubmissionRejected = "SubmissionRejected";
+    public const string UserCreated = "UserCreated";
+    public const string UserDeactivated = "UserDeactivated";
+    public const string UserReactivated = "UserReactivated";
+    public const string RecordCreated = "RecordCreated";
+    public const string RecordUpdated = "RecordUpdated";
+    public const string RecordDeleted = "RecordDeleted";
 }

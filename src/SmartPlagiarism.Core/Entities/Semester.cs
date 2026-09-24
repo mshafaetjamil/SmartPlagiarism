@@ -6,6 +6,8 @@ namespace SmartPlagiarism.Core.Entities;
 /// </summary>
 public class Semester
 {
+    public const int MaxNameLength = 64;
+
     public int Id { get; set; }
 
     /// <summary>Display name, e.g. "Summer 2026".</summary>

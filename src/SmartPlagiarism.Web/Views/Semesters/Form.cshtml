@@ -1,0 +1,47 @@
+@model SmartPlagiarism.Web.Models.Admin.SemesterFormViewModel
+@{
+    var editing = Model.Id is not null;
+    ViewData["Title"] = editing ? $"Edit {Model.Name}" : "New semester";
+}
+
+<div class="container py-4" style="max-width: 640px;">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a asp-action="Index">Semesters</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@ViewData["Title"]</li>
+        </ol>
+    </nav>
+
+    <h1 class="h3 mb-3">@ViewData["Title"]</h1>
+
+    <form method="post" asp-action="@(editing ? "Edit" : "Create")" asp-route-id="@Model.Id" class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger small"></div>
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" placeholder="Spring 2027" />
+                <span asp-validation-for="Name" class="text-danger small"></span>
+            </div>
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <label asp-for="StartDate" class="form-label"></label>
+                    <input asp-for="StartDate" type="date" class="form-control" />
+                    <span asp-validation-for="StartDate" class="text-danger small"></span>
+                </div>
+                <div class="col-sm-6">
+                    <label asp-for="EndDate" class="form-label"></label>
+                    <input asp-for="EndDate" type="date" class="form-control" />
+                    <span asp-validation-for="EndDate" class="text-danger small"></span>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer bg-transparent d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

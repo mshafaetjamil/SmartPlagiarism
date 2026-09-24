@@ -12,11 +12,11 @@ public class CourseConfiguration : IEntityTypeConfiguration<Course>
 
         builder.Property(course => course.Code)
             .IsRequired()
-            .HasMaxLength(32);
+            .HasMaxLength(Course.MaxCodeLength);
 
         builder.Property(course => course.Title)
             .IsRequired()
-            .HasMaxLength(200);
+            .HasMaxLength(Course.MaxTitleLength);
 
         // Course codes repeat across departments, so uniqueness is per department.
         builder.HasIndex(course => new { course.DepartmentId, course.Code }).IsUnique();

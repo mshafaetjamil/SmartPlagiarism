@@ -64,3 +64,17 @@ html {
   background-color: rgba(220, 53, 69, 0.3);
   box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.55);
 }
+
+/* Horizontal bars on the statistics page. The number beside each bar carries
+   the value; the bar is decoration, hidden from screen readers. */
+.stat-bar {
+  height: 0.6rem;
+  background-color: var(--bs-secondary-bg);
+  border-radius: 0.3rem;
+  overflow: hidden;
+}
+
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 0.3rem;
+}

@@ -3,6 +3,9 @@ namespace SmartPlagiarism.Core.Entities;
 /// <summary>An academic department, e.g. Computer Science and Engineering.</summary>
 public class Department
 {
+    public const int MaxCodeLength = 16;
+    public const int MaxNameLength = 128;
+
     public int Id { get; set; }
 
     /// <summary>Short code used in the UI and in student numbers, e.g. "CSE".</summary>

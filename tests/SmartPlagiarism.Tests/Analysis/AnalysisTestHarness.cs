@@ -78,6 +78,9 @@ internal sealed class AnalysisTestHarness : IAsyncDisposable
     public AppDbContext NewContext() =>
         new(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options);
 
+    /// <summary>Points a DI-registered DbContext at this harness's database.</summary>
+    public void UseDatabase(DbContextOptionsBuilder options) => options.UseSqlite(_connection);
+
     public SubmissionAnalyzer NewAnalyzer(AppDbContext context, IExtractionService? extraction = null) =>
         new(
             context,

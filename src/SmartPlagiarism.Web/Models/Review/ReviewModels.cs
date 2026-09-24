@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using SmartPlagiarism.Core.DTOs;
 using SmartPlagiarism.Core.DTOs.Review;
 using SmartPlagiarism.Core.DTOs.Submissions;
 using SmartPlagiarism.Core.Entities;

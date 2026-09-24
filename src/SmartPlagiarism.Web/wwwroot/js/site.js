@@ -52,3 +52,36 @@
         }
     }, intervalMs);
 })();
+
+// Confirmation for destructive forms: <form data-confirm="Delete X?"> asks
+// before submitting, so a stray click cannot delete or deactivate anything.
+document.addEventListener('submit', (event) => {
+    const message = event.target.dataset?.confirm;
+
+    if (message && !window.confirm(message)) {
+        event.preventDefault();
+    }
+});
+
+// Role-dependent fields (Views/Users/Create): an element with
+// data-for-roles="Student Teacher" is shown only while the [data-role-select]
+// dropdown holds one of those roles, and its inputs are disabled while hidden
+// so they are not posted.
+(() => {
+    const select = document.querySelector('[data-role-select]');
+
+    if (!select) {
+        return;
+    }
+
+    const update = () => {
+        for (const field of document.querySelectorAll('[data-for-roles]')) {
+            const shown = field.dataset.forRoles.split(' ').includes(select.value);
+            field.hidden = !shown;
+            field.querySelectorAll('input, select').forEach((input) => { input.disabled = !shown; });
+        }
+    };
+
+    select.addEventListener('change', update);
+    update();
+})();

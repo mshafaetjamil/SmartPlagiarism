@@ -1,0 +1,86 @@
+@model SmartPlagiarism.Web.Models.Admin.AuditLogViewModel
+@{
+    ViewData["Title"] = "Audit log";
+    var filter = Model.Filter;
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h1 class="h3 mb-0">Audit log</h1>
+        <span class="text-body-secondary small">@Model.Results.TotalCount entr@(Model.Results.TotalCount == 1 ? "y" : "ies")</span>
+    </div>
+
+    <form method="get" asp-action="Index" class="card border-0 shadow-sm mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-6 col-lg-2">
+                <label for="Action" class="form-label small mb-1">Action</label>
+                <select id="Action" name="Action" class="form-select form-select-sm">
+                    <option value="">Any</option>
+                    @foreach (var action in Model.Options.Actions)
+                    {
+                        <option value="@action" selected="@(filter.Action == action)">@action</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-lg-2">
+                <label for="EntityType" class="form-label small mb-1">About</label>
+                <select id="EntityType" name="EntityType" class="form-select form-select-sm">
+                    <option value="">Anything</option>
+                    @foreach (var type in Model.Options.EntityTypes)
+                    {
+                        <option value="@type" selected="@(filter.EntityType == type)">@type</option>
+                    }
+                </select>
+            </div>
+            <div class="col-lg-3">
+                <label for="User" class="form-label small mb-1">User email</label>
+                <input id="User" name="User" value="@filter.User" class="form-control form-control-sm" />
+            </div>
+            <div class="col-6 col-lg-2">
+                <label for="From" class="form-label small mb-1">From</label>
+                <input id="From" name="From" type="date" value="@filter.From?.ToString("yyyy-MM-dd")" class="form-control form-control-sm" />
+            </div>
+            <div class="col-6 col-lg-2">
+                <label for="To" class="form-label small mb-1">To</label>
+                <input id="To" name="To" type="date" value="@filter.To?.ToString("yyyy-MM-dd")" class="form-control form-control-sm" />
+            </div>
+            <div class="col-lg-1 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filter</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">When (UTC)</th>
+                        <th scope="col">User</th>
+                        <th scope="col">Action</th>
+                        <th scope="col">About</th>
+                        <th scope="col">Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Results.Items.Count == 0)
+                    {
+                        <tr><td colspan="5" class="text-center text-body-secondary py-4">No entries match these filters.</td></tr>
+                    }
+                    @foreach (var entry in Model.Results.Items)
+                    {
+                        <tr>
+                            <td class="text-nowrap small">@entry.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td class="small">@(entry.UserEmail ?? (entry.UserId is null ? "system" : "deleted user"))</td>
+                            <td><span class="badge text-bg-light border">@entry.Action</span></td>
+                            <td class="small">@entry.EntityType @(entry.EntityId is null ? null : $"#{entry.EntityId}")</td>
+                            <td class="small text-break">@entry.Details</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <partial name="_Pager" model="new PagerViewModel(nameof(AuditLogController.Index), Model.Results.Page, Model.Results.TotalPages, page => filter.RouteValues(page))" />
+</div>

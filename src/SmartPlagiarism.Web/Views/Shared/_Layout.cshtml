@@ -50,6 +50,23 @@
                             <li class="nav-item">
                                 <a class="@NavClass("Dashboard", "Admin")" asp-controller="Dashboard" asp-action="Admin">Admin dashboard</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="@NavClass("Users", "Index")" asp-controller="Users" asp-action="Index">Users</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Academic</a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" asp-controller="Departments" asp-action="Index">Departments</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Courses" asp-action="Index">Courses</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Semesters" asp-action="Index">Semesters</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a class="@NavClass("Statistics", "Index")" asp-controller="Statistics" asp-action="Index">Statistics</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="@NavClass("AuditLog", "Index")" asp-controller="AuditLog" asp-action="Index">Audit log</a>
+                            </li>
                         }
                         else if (User.IsInRole(ApplicationRoles.Teacher))
                         {

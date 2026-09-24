@@ -8,10 +8,7 @@
 <div class="container py-4">
     <h1 class="h3 mb-4">Teacher dashboard</h1>
 
-    @if (TempData["StatusMessage"] is string statusMessage)
-    {
-        <div class="alert alert-info" role="alert">@statusMessage</div>
-    }
+    <partial name="_StatusMessage" />
 
     <div class="row g-3 mb-4">
         <div class="col-md-4">

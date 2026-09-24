@@ -9,6 +9,8 @@ namespace SmartPlagiarism.Core.Entities;
 /// </summary>
 public class StudentProfile
 {
+    public const int MaxNumberLength = 32;
+
     public int Id { get; set; }
 
     /// <summary>Identity user this profile belongs to. Unique.</summary>

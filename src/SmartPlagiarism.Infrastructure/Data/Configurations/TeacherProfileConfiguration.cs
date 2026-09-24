@@ -16,7 +16,7 @@ public class TeacherProfileConfiguration : IEntityTypeConfiguration<TeacherProfi
 
         builder.Property(profile => profile.EmployeeNumber)
             .IsRequired()
-            .HasMaxLength(32);
+            .HasMaxLength(TeacherProfile.MaxNumberLength);
 
         builder.HasIndex(profile => profile.EmployeeNumber).IsUnique();
 

@@ -1,0 +1,119 @@
+@using SmartPlagiarism.Core.Identity
+@model SmartPlagiarism.Web.Models.Admin.UserListViewModel
+@{
+    ViewData["Title"] = "Users";
+    var filter = Model.Filter;
+    var thisPage = Context.Request.Path + Context.Request.QueryString;
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h1 class="h3 mb-0">Users</h1>
+        <a class="btn btn-primary" asp-action="Create">New user</a>
+    </div>
+
+    <partial name="_StatusMessage" />
+
+    <form method="get" asp-action="Index" class="card border-0 shadow-sm mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-5">
+                <label for="Search" class="form-label small mb-1">Name or email</label>
+                <input id="Search" name="Search" value="@filter.Search" class="form-control form-control-sm" />
+            </div>
+            <div class="col-6 col-md-2">
+                <label for="Role" class="form-label small mb-1">Role</label>
+                <select id="Role" name="Role" class="form-select form-select-sm">
+                    <option value="">Any</option>
+                    @foreach (var role in ApplicationRoles.All)
+                    {
+                        <option value="@role" selected="@(filter.Role == role)">@role</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label for="Active" class="form-label small mb-1">Status</label>
+                <select id="Active" name="Active" class="form-select form-select-sm">
+                    <option value="">Any</option>
+                    <option value="true" selected="@(filter.Active == true)">Active</option>
+                    <option value="false" selected="@(filter.Active == false)">Deactivated</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filter</button>
+                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Reset</a>
+            </div>
+        </div>
+    </form>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Role</th>
+                        <th scope="col">Number</th>
+                        <th scope="col">Department</th>
+                        <th scope="col">Status</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Results.Items.Count == 0)
+                    {
+                        <tr><td colspan="6" class="text-center text-body-secondary py-4">No users match these filters.</td></tr>
+                    }
+                    @foreach (var user in Model.Results.Items)
+                    {
+                        <tr>
+                            <td>
+                                @user.FullName
+                                <span class="d-block small text-body-secondary">@user.Email</span>
+                            </td>
+                            <td>@(user.Role ?? "-")</td>
+                            <td>@(user.Identifier ?? "-")</td>
+                            <td>@(user.DepartmentCode ?? "-")</td>
+                            <td>
+                                @if (user.IsDeactivated)
+                                {
+                                    <span class="badge text-bg-secondary">Deactivated</span>
+                                }
+                                else if (user.LockedOutUntilUtc is { } lockedOutUntil)
+                                {
+                                    <span class="badge text-bg-warning" title="Too many failed sign-ins">
+                                        Locked until @lockedOutUntil.ToString("HH:mm") UTC
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-success">Active</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                @if (user.Id == Model.CurrentUserId)
+                                {
+                                    <span class="small text-body-secondary">You</span>
+                                }
+                                else if (user.IsDeactivated)
+                                {
+                                    <form method="post" asp-action="Reactivate" asp-route-id="@user.Id" asp-route-returnUrl="@thisPage" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-outline-success">Reactivate</button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <form method="post" asp-action="Deactivate" asp-route-id="@user.Id" asp-route-returnUrl="@thisPage" class="d-inline"
+                                          data-confirm="Deactivate @user.Email? They will be signed out and unable to sign in.">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Deactivate</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <partial name="_Pager" model="new PagerViewModel(nameof(UsersController.Index), Model.Results.Page, Model.Results.TotalPages, page => filter.RouteValues(page))" />
+</div>

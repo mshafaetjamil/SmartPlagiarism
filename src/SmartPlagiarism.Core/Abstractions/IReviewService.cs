@@ -1,3 +1,4 @@
+using SmartPlagiarism.Core.DTOs;
 using SmartPlagiarism.Core.DTOs.Review;
 
 namespace SmartPlagiarism.Core.Abstractions;

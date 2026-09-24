@@ -16,7 +16,7 @@ public class StudentProfileConfiguration : IEntityTypeConfiguration<StudentProfi
 
         builder.Property(profile => profile.StudentNumber)
             .IsRequired()
-            .HasMaxLength(32);
+            .HasMaxLength(StudentProfile.MaxNumberLength);
 
         builder.HasIndex(profile => profile.StudentNumber).IsUnique();
 

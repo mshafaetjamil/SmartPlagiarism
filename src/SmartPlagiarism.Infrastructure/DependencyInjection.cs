@@ -11,8 +11,10 @@ using SmartPlagiarism.Engine.Extraction;
 using SmartPlagiarism.Engine.Fingerprinting;
 using SmartPlagiarism.Engine.Ocr;
 using SmartPlagiarism.Engine.Similarity;
+using SmartPlagiarism.Infrastructure.Admin;
 using SmartPlagiarism.Infrastructure.Analysis;
 using SmartPlagiarism.Infrastructure.Data;
+using SmartPlagiarism.Infrastructure.Reports;
 using SmartPlagiarism.Infrastructure.Services;
 using SmartPlagiarism.Infrastructure.Similarity;
 using SmartPlagiarism.Infrastructure.Storage;
@@ -44,6 +46,11 @@ public static class DependencyInjection
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();
 
+        // Sign-in cookies are re-checked against the user's security stamp this
+        // often. Deactivating an account changes the stamp, so this bounds how long
+        // a deactivated user's open session survives (the default is 30 minutes).
+        services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.FromMinutes(1));
+
         // Relative paths are resolved against the content root here, once, so the
         // storage service only ever deals with an absolute path.
         services.AddOptions<FileStorageOptions>()
@@ -63,6 +70,16 @@ public static class DependencyInjection
         services.AddScoped<ISubmissionService, SubmissionService>();
         services.AddScoped<IExtractionService, ExtractionService>();
         services.AddScoped<IReviewService, ReviewService>();
+        services.AddScoped<ISubmissionAccessService, SubmissionAccessService>();
+
+        services.AddOptions<ReportOptions>().Bind(configuration.GetSection(ReportOptions.SectionName));
+        services.AddSingleton<IReportGenerator, QuestPdfReportGenerator>();
+        services.AddScoped<IReportService, ReportService>();
+
+        services.AddScoped<IUserAdministrationService, UserAdministrationService>();
+        services.AddScoped<IAcademicStructureService, AcademicStructureService>();
+        services.AddScoped<IStatisticsService, StatisticsService>();
+        services.AddScoped<IAuditLogReader, AuditLogReader>();
 
         AddAnalysis(services);
 
