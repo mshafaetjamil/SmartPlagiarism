@@ -38,13 +38,11 @@ public static class TextNormalizer
 
         foreach (var character in folded)
         {
-            var category = CharUnicodeInfo.GetUnicodeCategory(character);
-
             // Whitespace is tested before the invisible-character check on purpose:
             // tab, carriage return and line feed are all UnicodeCategory.Control, and
             // dropping them outright would weld the last word of one line onto the
             // first word of the next.
-            if (char.IsWhiteSpace(character) || IsPunctuationOrSymbol(category))
+            if (IsWordSeparator(character))
             {
                 // Only emit a separator once something follows it, which trims both
                 // ends and collapses runs in a single pass.
@@ -52,7 +50,7 @@ public static class TextNormalizer
                 continue;
             }
 
-            if (IsInvisible(category))
+            if (IsInvisible(CharUnicodeInfo.GetUnicodeCategory(character)))
             {
                 continue;
             }
@@ -97,6 +95,15 @@ public static class TextNormalizer
 
         return count;
     }
+
+    /// <summary>
+    /// Whether a character ends a word: whitespace, punctuation or a symbol.
+    /// Everything else - including the combining vowel signs of Indic scripts and
+    /// the invisible characters <see cref="Normalize"/> drops - belongs to the word
+    /// around it. Shared with <see cref="WordTokenizer"/> so the two cannot drift.
+    /// </summary>
+    internal static bool IsWordSeparator(char character) =>
+        char.IsWhiteSpace(character) || IsPunctuationOrSymbol(CharUnicodeInfo.GetUnicodeCategory(character));
 
     private static bool IsInvisible(UnicodeCategory category) => category
         is UnicodeCategory.Control

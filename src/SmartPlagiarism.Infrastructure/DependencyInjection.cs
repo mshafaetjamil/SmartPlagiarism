@@ -8,9 +8,12 @@ using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.Files;
 using SmartPlagiarism.Core.Identity;
 using SmartPlagiarism.Engine.Extraction;
+using SmartPlagiarism.Engine.Fingerprinting;
 using SmartPlagiarism.Engine.Ocr;
+using SmartPlagiarism.Engine.Similarity;
 using SmartPlagiarism.Infrastructure.Data;
 using SmartPlagiarism.Infrastructure.Services;
+using SmartPlagiarism.Infrastructure.Similarity;
 using SmartPlagiarism.Infrastructure.Storage;
 
 namespace SmartPlagiarism.Infrastructure;
@@ -90,5 +93,35 @@ public static class DependencyInjection
 
         services.AddSingleton<IExtractorFactory>(provider =>
             new ExtractorFactory(provider.GetServices<ITextExtractor>()));
+
+        AddSimilarity(services, configuration);
+    }
+
+    /// <summary>
+    /// The similarity engine and its two ports into storage. Phase 6's worker is
+    /// what will drive the pipeline.
+    /// </summary>
+    private static void AddSimilarity(IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<SimilarityOptions>(configuration.GetSection("Similarity"));
+
+        // Scoped: both read through the request's DbContext.
+        services.AddScoped<IFingerprintIndex, EfFingerprintIndex>();
+        services.AddScoped<ICorpusReader, EfCorpusReader>();
+
+        // Corpus-wide IDF is not maintained yet, so every term is weighted equally.
+        // Cosine then reduces to term frequency alone - weaker than a corpus-aware
+        // weighting, but sound. Phase 8's statistics work is where real document
+        // frequencies would come from.
+        services.AddSingleton<IInverseDocumentFrequency>(UniformInverseDocumentFrequency.Instance);
+
+        services.AddSingleton(provider =>
+            CombinedSimilarity.CreateDefault(provider.GetRequiredService<IInverseDocumentFrequency>()));
+
+        services.AddScoped(provider => new SimilarityPipeline(
+            provider.GetRequiredService<IFingerprintIndex>(),
+            provider.GetRequiredService<ICorpusReader>(),
+            provider.GetRequiredService<CombinedSimilarity>(),
+            provider.GetRequiredService<IOptions<SimilarityOptions>>().Value));
     }
 }
