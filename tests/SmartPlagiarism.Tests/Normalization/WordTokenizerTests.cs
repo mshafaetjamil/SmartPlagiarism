@@ -13,13 +13,13 @@ namespace SmartPlagiarism.Tests.Normalization;
 public class WordTokenizerTests
 {
     // "বাংলা ভাষা" - the vowel sign U+09BE is a spacing combining mark, not a letter.
-    private const string Bengali = "বাংলা ভাষা";
+    private const string Bengali = "\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE";
 
     [Theory]
     [InlineData("The Quick, brown FOX!")]
     [InlineData("wasn't well-known")]
-    [InlineData("ﬁnd the ＡＢＣ")]
-    [InlineData("plagi​arism check")]
+    [InlineData("\uFB01nd the \uFF21\uFF22\uFF23")]
+    [InlineData("plagi\u200Barism check")]
     [InlineData(Bengali)]
     public void Tokenize_AgreesWithNormalizer(string text)
     {
@@ -42,14 +42,14 @@ public class WordTokenizerTests
         var tokens = WordTokenizer.Tokenize(Bengali);
 
         tokens.Should().HaveCount(2);
-        tokens[0].Should().Be(new Token("বাংলা", 0, 5));
-        tokens[1].Should().Be(new Token("ভাষা", 6, 4));
+        tokens[0].Should().Be(new Token("\u09AC\u09BE\u0982\u09B2\u09BE", 0, 5));
+        tokens[1].Should().Be(new Token("\u09AD\u09BE\u09B7\u09BE", 6, 4));
     }
 
     [Fact]
     public void Tokenize_ZeroWidthSpaceDoesNotSplitAWord()
     {
-        var tokens = WordTokenizer.Tokenize("plagi​arism");
+        var tokens = WordTokenizer.Tokenize("plagi\u200Barism");
 
         tokens.Should().Equal(new Token("plagiarism", 0, 11));
     }
@@ -58,7 +58,7 @@ public class WordTokenizerTests
     public void Tokenize_LigatureSpanCoversOriginalCharacters()
     {
         // "ﬁnd" is three characters in the source but "find" once folded.
-        var tokens = WordTokenizer.Tokenize("ﬁnd");
+        var tokens = WordTokenizer.Tokenize("\uFB01nd");
 
         tokens.Should().Equal(new Token("find", 0, 3));
     }

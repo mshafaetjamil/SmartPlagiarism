@@ -65,7 +65,7 @@ public class BanglaPdfExtractionTests(ITestOutputHelper output)
     public async Task OcrThatReadsWorse_DoesNotReplaceTheEmbeddedText()
     {
         // Every word starts with a vowel sign: worse than anything the PDF holds.
-        var garbage = string.Join(' ', Enumerable.Repeat("িা", 20));
+        var garbage = string.Join(' ', Enumerable.Repeat("\u09BF\u09BE", 20));
         await using var pdf = Fixture();
 
         var result = await new PdfTextExtractor(new ScriptedOcrService(garbage), s_renderer).ExtractAsync(pdf);

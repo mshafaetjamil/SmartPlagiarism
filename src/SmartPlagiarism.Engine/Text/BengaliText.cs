@@ -45,15 +45,15 @@ public readonly record struct BengaliTextAssessment(int BengaliWords, int Suspec
 /// </summary>
 public static class BengaliText
 {
-    private const char Virama = '্';
-    private const char Nukta = '়';
-    private const char SignAa = 'া';
-    private const char SignE = 'ে';
-    private const char SignO = 'ো';
-    private const char SignAu = 'ৌ';
-    private const char AuLengthMark = 'ৗ';
+    private const char Virama = '\u09CD';
+    private const char Nukta = '\u09BC';
+    private const char SignAa = '\u09BE';
+    private const char SignE = '\u09C7';
+    private const char SignO = '\u09CB';
+    private const char SignAu = '\u09CC';
+    private const char AuLengthMark = '\u09D7';
 
-    public static bool IsBengali(char character) => character is >= 'ঀ' and <= '৿';
+    public static bool IsBengali(char character) => character is >= '\u0980' and <= '\u09FF';
 
     /// <summary>Whether the text has enough Bengali in it to need Bengali handling.</summary>
     public static bool ContainsBengali(string? text)
@@ -258,16 +258,16 @@ public static class BengaliText
         return index;
     }
 
-    private static bool IsPreBaseVowelSign(char character) => character is 'ি' or 'ে' or 'ৈ';
+    private static bool IsPreBaseVowelSign(char character) => character is '\u09BF' or '\u09C7' or '\u09C8';
 
     private static bool IsConsonant(char character) =>
-        character is (>= 'ক' and <= 'হ') or 'ৎ' or 'ড়' or 'ঢ়' or 'য়' or 'ৰ' or 'ৱ';
+        character is (>= '\u0995' and <= '\u09B9') or '\u09CE' or '\u09DC' or '\u09DD' or '\u09DF' or '\u09F0' or '\u09F1';
 
     /// <summary>Signs that attach to a preceding letter and cannot start a word.</summary>
     private static bool IsDependentSign(char character) =>
-        character is (>= 'ঁ' and <= 'ঃ')
+        character is (>= '\u0981' and <= '\u0983')
             or Nukta
-            or (>= 'া' and <= '্')
+            or (>= '\u09BE' and <= '\u09CD')
             or AuLengthMark
-            or 'ৢ' or 'ৣ';
+            or '\u09E2' or '\u09E3';
 }

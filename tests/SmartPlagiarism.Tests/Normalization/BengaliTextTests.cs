@@ -10,19 +10,19 @@ namespace SmartPlagiarism.Tests.Normalization;
 /// </summary>
 public class BengaliTextTests
 {
-    private const string Ka = "ক";
-    private const string Ssa = "ষ";
-    private const string Da = "দ";
-    private const string Na = "ন";
-    private const string La = "ল";
-    private const string Ra = "র";
-    private const string SignI = "ি";
-    private const string SignE = "ে";
-    private const string SignAa = "া";
-    private const string SignO = "ো";
-    private const string SignAu = "ৌ";
-    private const string AuLength = "ৗ";
-    private const string Virama = "্";
+    private const string Ka = "\u0995";
+    private const string Ssa = "\u09B7";
+    private const string Da = "\u09A6";
+    private const string Na = "\u09A8";
+    private const string La = "\u09B2";
+    private const string Ra = "\u09B0";
+    private const string SignI = "\u09BF";
+    private const string SignE = "\u09C7";
+    private const string SignAa = "\u09BE";
+    private const string SignO = "\u09CB";
+    private const string SignAu = "\u09CC";
+    private const string AuLength = "\u09D7";
+    private const string Virama = "\u09CD";
 
     // ---------------- drawing-order repair ----------------
 
@@ -140,8 +140,8 @@ public class BengaliTextTests
 
     [Theory]
     [InlineData("plain English text only", false)]
-    [InlineData("কি", false)]
-    [InlineData("কিকিকিকিকি", true)]
+    [InlineData("\u0995\u09BF", false)]
+    [InlineData("\u0995\u09BF\u0995\u09BF\u0995\u09BF\u0995\u09BF\u0995\u09BF", true)]
     public void ContainsBengali_NeedsMoreThanAStrayCharacter(string text, bool expected)
     {
         BengaliText.ContainsBengali(text).Should().Be(expected);
