@@ -1,3 +1,4 @@
+using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -10,6 +11,7 @@ using SmartPlagiarism.Engine.Extraction;
 using SmartPlagiarism.Engine.Ocr;
 using SmartPlagiarism.Engine.Similarity;
 using SmartPlagiarism.Infrastructure.Analysis;
+using SmartPlagiarism.Infrastructure.Archive;
 using SmartPlagiarism.Infrastructure.Data;
 using SmartPlagiarism.Infrastructure.Services;
 using SmartPlagiarism.Infrastructure.Similarity;
@@ -81,7 +83,14 @@ internal sealed class AnalysisTestHarness : IAsyncDisposable
     /// <summary>Points a DI-registered DbContext at this harness's database.</summary>
     public void UseDatabase(DbContextOptionsBuilder options) => options.UseSqlite(_connection);
 
-    public SubmissionAnalyzer NewAnalyzer(AppDbContext context, IExtractionService? extraction = null) =>
+    public SubmissionAnalyzer NewAnalyzer(AppDbContext context, IExtractionService? extraction = null)
+    {
+        var pipeline = NewPipeline(context);
+        return new(context, NewIndexer(context, extraction, pipeline), pipeline, NullLogger<SubmissionAnalyzer>.Instance);
+    }
+
+    /// <summary>Extraction and fingerprinting, as the analyzer and the archive importer use them.</summary>
+    public DocumentIndexer NewIndexer(AppDbContext context, IExtractionService? extraction = null, SimilarityPipeline? pipeline = null) =>
         new(
             context,
             extraction ?? new ExtractionService(
@@ -89,11 +98,49 @@ internal sealed class AnalysisTestHarness : IAsyncDisposable
                 Storage,
                 ExtractorFactory.CreateDefault(new NullOcrService("no OCR in tests")),
                 NullLogger<ExtractionService>.Instance),
-            new SimilarityPipeline(
-                new EfFingerprintIndex(context),
-                new EfCorpusReader(context),
-                CombinedSimilarity.CreateDefault(UniformInverseDocumentFrequency.Instance)),
-            NullLogger<SubmissionAnalyzer>.Instance);
+            pipeline ?? NewPipeline(context));
+
+    private static SimilarityPipeline NewPipeline(AppDbContext context) =>
+        new(
+            new EfFingerprintIndex(context),
+            new EfCorpusReader(context),
+            CombinedSimilarity.CreateDefault(UniformInverseDocumentFrequency.Instance));
+
+    public ArchiveImporter NewImporter(AppDbContext context, IExtractionService? extraction = null) =>
+        new(context, Storage, new FileUploadValidator(), NewIndexer(context, extraction), NullLogger<ArchiveImporter>.Instance);
+
+    public ArchiveService NewArchiveService(AppDbContext context) =>
+        new(context, Storage, Queue, new AuditService(context, NullLogger<AuditService>.Instance));
+
+    /// <summary>Queues a ZIP as an admin would and runs its import, as the worker does.</summary>
+    /// <returns>The import's id.</returns>
+    public async Task<int> ImportArchiveAsync(byte[] zip, int? defaultYear = null, int? defaultDepartmentId = null)
+    {
+        await using (var context = NewContext())
+        await using (var content = new MemoryStream(zip))
+        {
+            var result = await NewArchiveService(context).QueueImportAsync(
+                new Core.DTOs.Archive.ArchivePackage("archive.zip", zip.Length, content, defaultYear, defaultDepartmentId),
+                "admin-id");
+
+            result.Succeeded.Should().BeTrue(string.Join(" ", result.Errors));
+        }
+
+        var importId = Queue.Enqueued[^1];
+
+        await using (var context = NewContext())
+        {
+            await NewImporter(context).ImportAsync(importId);
+        }
+
+        return importId;
+    }
+
+    public async Task<int> DepartmentIdAsync(string code)
+    {
+        await using var context = NewContext();
+        return await context.Departments.Where(department => department.Code == code).Select(department => department.Id).SingleAsync();
+    }
 
     /// <summary>Analyses a submission in its own unit of work, as the worker does.</summary>
     public async Task AnalyzeAsync(int submissionId)
@@ -191,14 +238,14 @@ internal sealed class AnalysisTestHarness : IAsyncDisposable
     };
 }
 
-/// <summary>An <see cref="IAnalysisQueue"/> that only records what was enqueued.</summary>
-internal sealed class RecordingAnalysisQueue : IAnalysisQueue
+/// <summary>A queue - of submissions or archive imports - that only records what was enqueued.</summary>
+internal sealed class RecordingAnalysisQueue : IAnalysisQueue, IArchiveImportQueue
 {
     public List<int> Enqueued { get; } = [];
 
-    public ValueTask EnqueueAsync(int submissionId, CancellationToken cancellationToken = default)
+    public ValueTask EnqueueAsync(int id, CancellationToken cancellationToken = default)
     {
-        Enqueued.Add(submissionId);
+        Enqueued.Add(id);
         return ValueTask.CompletedTask;
     }
 

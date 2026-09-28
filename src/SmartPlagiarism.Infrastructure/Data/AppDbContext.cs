@@ -43,6 +43,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
+    public DbSet<ArchiveDocument> ArchiveDocuments => Set<ArchiveDocument>();
+
+    public DbSet<ArchiveImport> ArchiveImports => Set<ArchiveImport>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

@@ -77,13 +77,18 @@ public sealed record ReviewResultDto(
 
 /// <param name="MatchId">The MatchedDocument, which is what the viewer opens.</param>
 /// <param name="OwnFileName">Which of this submission's files contains the passages.</param>
+/// <param name="MatchedSubmissionId">The matched submission; null when the source is an archive document.</param>
+/// <param name="SourceTitle">The matched submission's or archive document's title.</param>
+/// <param name="SourceOwner">The student, or the archive author and year.</param>
+/// <param name="ArchiveYear">Set when the source is from the archive.</param>
 public sealed record ReviewMatchDto(
     int MatchId,
     string OwnFileName,
     string MatchedFileName,
-    int MatchedSubmissionId,
-    string MatchedSubmissionTitle,
-    string MatchedStudentName,
+    int? MatchedSubmissionId,
+    string SourceTitle,
+    string SourceOwner,
+    int? ArchiveYear,
     decimal SimilarityPercent,
     int PassageCount);
 
@@ -107,10 +112,12 @@ public sealed record ComparisonDto(
     ComparisonSideDto Submitted,
     ComparisonSideDto Source);
 
+/// <param name="Title">The submission's or archive document's title.</param>
+/// <param name="Owner">The student, or the archive author and year.</param>
 public sealed record ComparisonSideDto(
     string FileName,
-    string SubmissionTitle,
-    string StudentName,
+    string Title,
+    string Owner,
     IReadOnlyList<HighlightSegment> Segments);
 
 public enum ReviewDecisionOutcome

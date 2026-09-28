@@ -203,6 +203,107 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                     b.ToTable("ApiKeys");
                 });
 
+            modelBuilder.Entity("SmartPlagiarism.Core.Entities.ArchiveDocument", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ArchiveImportId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Author")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CourseCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ImportedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArchiveImportId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("Year");
+
+                    b.ToTable("ArchiveDocuments");
+                });
+
+            modelBuilder.Entity("SmartPlagiarism.Core.Entities.ArchiveImport", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("DefaultDepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DefaultYear")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ImportedFiles")
+                        .HasColumnType("int");
+
+                    b.PrimitiveCollection<string>("Messages")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PackageFileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("PackagePath")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<int>("SkippedFiles")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalFiles")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("ArchiveImports");
+                });
+
             modelBuilder.Entity("SmartPlagiarism.Core.Entities.AuditLog", b =>
                 {
                     b.Property<long>("Id")
@@ -612,6 +713,9 @@ namespace SmartPlagiarism.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ArchiveDocumentId")
+                        .HasColumnType("int");
+
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -637,16 +741,23 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<int>("SubmissionId")
+                    b.Property<int?>("SubmissionId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ArchiveDocumentId")
+                        .IsUnique()
+                        .HasFilter("[ArchiveDocumentId] IS NOT NULL");
 
                     b.HasIndex("Sha256Hash");
 
                     b.HasIndex("SubmissionId");
 
-                    b.ToTable("UploadedFiles");
+                    b.ToTable("UploadedFiles", t =>
+                        {
+                            t.HasCheckConstraint("CK_UploadedFiles_OneOwner", "([SubmissionId] IS NULL AND [ArchiveDocumentId] IS NOT NULL) OR ([SubmissionId] IS NOT NULL AND [ArchiveDocumentId] IS NULL)");
+                        });
                 });
 
             modelBuilder.Entity("SmartPlagiarism.Core.Identity.ApplicationUser", b =>
@@ -767,6 +878,23 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("SmartPlagiarism.Core.Entities.ArchiveDocument", b =>
+                {
+                    b.HasOne("SmartPlagiarism.Core.Entities.ArchiveImport", "ArchiveImport")
+                        .WithMany()
+                        .HasForeignKey("ArchiveImportId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("SmartPlagiarism.Core.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ArchiveImport");
+
+                    b.Navigation("Department");
                 });
 
             modelBuilder.Entity("SmartPlagiarism.Core.Entities.Course", b =>
@@ -913,13 +1041,25 @@ namespace SmartPlagiarism.Infrastructure.Migrations
 
             modelBuilder.Entity("SmartPlagiarism.Core.Entities.UploadedFile", b =>
                 {
+                    b.HasOne("SmartPlagiarism.Core.Entities.ArchiveDocument", "ArchiveDocument")
+                        .WithOne("File")
+                        .HasForeignKey("SmartPlagiarism.Core.Entities.UploadedFile", "ArchiveDocumentId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("SmartPlagiarism.Core.Entities.Submission", "Submission")
                         .WithMany("Files")
                         .HasForeignKey("SubmissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("ArchiveDocument");
 
                     b.Navigation("Submission");
+                });
+
+            modelBuilder.Entity("SmartPlagiarism.Core.Entities.ArchiveDocument", b =>
+                {
+                    b.Navigation("File")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SmartPlagiarism.Core.Entities.Department", b =>

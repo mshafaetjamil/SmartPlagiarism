@@ -4,7 +4,6 @@ using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.Entities;
 using SmartPlagiarism.Core.Enums;
 using SmartPlagiarism.Engine;
-using SmartPlagiarism.Engine.Fingerprinting;
 using SmartPlagiarism.Engine.Matching;
 using SmartPlagiarism.Engine.Similarity;
 using SmartPlagiarism.Infrastructure.Data;
@@ -22,18 +21,18 @@ public class SubmissionAnalyzer : ISubmissionAnalyzer
         "An unexpected error stopped the analysis. It has been logged; a teacher can re-run it.";
 
     private readonly AppDbContext _context;
-    private readonly IExtractionService _extraction;
+    private readonly DocumentIndexer _indexer;
     private readonly SimilarityPipeline _pipeline;
     private readonly ILogger<SubmissionAnalyzer> _logger;
 
     public SubmissionAnalyzer(
         AppDbContext context,
-        IExtractionService extraction,
+        DocumentIndexer indexer,
         SimilarityPipeline pipeline,
         ILogger<SubmissionAnalyzer> logger)
     {
         _context = context;
-        _extraction = extraction;
+        _indexer = indexer;
         _pipeline = pipeline;
         _logger = logger;
     }
@@ -116,48 +115,28 @@ public class SubmissionAnalyzer : ISubmissionAnalyzer
     /// <returns>Null when a result was stored; otherwise why none could be.</returns>
     private async Task<string?> RunAsync(int submissionId, CancellationToken cancellationToken)
     {
-        var files = await _context.UploadedFiles
+        var fileIds = await _context.UploadedFiles
             .AsNoTracking()
             .Where(file => file.SubmissionId == submissionId)
             .OrderBy(file => file.Id)
-            .Select(file => new { file.Id, file.OriginalFileName, file.Sha256Hash })
+            .Select(file => file.Id)
             .ToListAsync(cancellationToken);
 
-        if (files.Count == 0)
+        if (fileIds.Count == 0)
         {
             return "The submission has no files to analyse.";
         }
 
-        foreach (var file in files)
-        {
-            // Failures are recorded on the file's own extraction row; the loop goes
-            // on so one unreadable file does not sink the others.
-            await _extraction.ExtractAndPersistAsync(file.Id, cancellationToken);
-        }
-
-        var fileIds = files.Select(file => file.Id).ToList();
-
-        var extracted = await _context.ExtractedTexts
-            .AsNoTracking()
-            .Where(text => fileIds.Contains(text.UploadedFileId))
-            .Select(text => new { text.UploadedFileId, text.FullText, text.Warnings })
-            .ToListAsync(cancellationToken);
-
-        var documents = files
-            .Join(
-                extracted,
-                file => file.Id,
-                text => text.UploadedFileId,
-                (file, text) => new AnalyzedDocument(file.Id, text.FullText, file.Sha256Hash))
-            .Where(document => !document.IsEmpty)
-            .ToList();
+        // Fingerprints are stored before comparison so later submissions can be
+        // shortlisted against this one; its own files are excluded from its own
+        // comparison below.
+        var indexed = await _indexer.IndexAsync(fileIds, cancellationToken);
+        var documents = indexed.Where(file => file.Document is not null).Select(file => file.Document!).ToList();
 
         if (documents.Count == 0)
         {
-            return DescribeUnreadable(files.Select(file => file.OriginalFileName).ToList(), extracted.Select(text => text.Warnings));
+            return DescribeUnreadable(indexed);
         }
-
-        await StoreFingerprintsAsync(documents, cancellationToken);
 
         var reports = new List<(AnalyzedDocument Document, SimilarityReport Report)>(documents.Count);
 
@@ -176,47 +155,14 @@ public class SubmissionAnalyzer : ISubmissionAnalyzer
     /// A submission with no readable text gets a failure, never a 0% score: a
     /// scanned PDF with OCR unavailable would otherwise look perfectly original.
     /// </summary>
-    private static string DescribeUnreadable(IReadOnlyList<string> fileNames, IEnumerable<List<string>> warnings)
+    private static string DescribeUnreadable(IReadOnlyList<IndexedFile> files)
     {
-        var firstWarning = warnings.SelectMany(fileWarnings => fileWarnings).FirstOrDefault();
-        var files = string.Join(", ", fileNames);
+        var firstWarning = files.SelectMany(file => file.Warnings).FirstOrDefault();
+        var names = string.Join(", ", files.Select(file => file.FileName));
 
         return firstWarning is null
-            ? $"No readable text was found in {files}."
-            : $"No readable text was found in {files}. {firstWarning}";
-    }
-
-    /// <summary>
-    /// Stores each file's fingerprints, replacing any from an earlier run. Stored
-    /// before comparison so later submissions can be shortlisted against this one;
-    /// the submission's own files are excluded from its own comparison.
-    /// </summary>
-    private async Task StoreFingerprintsAsync(IReadOnlyList<AnalyzedDocument> documents, CancellationToken cancellationToken)
-    {
-        var fileIds = documents.Select(document => document.Id).ToList();
-
-        var existing = await _context.DocumentFingerprints
-            .Where(fingerprint => fileIds.Contains(fingerprint.UploadedFileId))
-            .ToDictionaryAsync(fingerprint => fingerprint.UploadedFileId, cancellationToken);
-
-        foreach (var document in documents)
-        {
-            var set = _pipeline.Fingerprint(document);
-
-            if (!existing.TryGetValue(document.Id, out var row))
-            {
-                row = new DocumentFingerprint { UploadedFileId = document.Id };
-                _context.DocumentFingerprints.Add(row);
-            }
-
-            row.Fingerprints = FingerprintSerializer.Pack(set.DistinctHashes);
-            row.FingerprintCount = set.DistinctHashes.Count;
-            row.NGramSize = set.NGramSize;
-            row.WindowSize = set.WindowSize;
-            row.GeneratedAtUtc = DateTime.UtcNow;
-        }
-
-        await _context.SaveChangesAsync(cancellationToken);
+            ? $"No readable text was found in {names}."
+            : $"No readable text was found in {names}. {firstWarning}";
     }
 
     /// <summary>

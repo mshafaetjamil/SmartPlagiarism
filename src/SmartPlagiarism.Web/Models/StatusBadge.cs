@@ -26,6 +26,24 @@ public static class StatusBadge
         _ => "text-bg-secondary",
     };
 
+    public static string For(ArchiveImportStatus status) => status switch
+    {
+        ArchiveImportStatus.Queued => "text-bg-secondary",
+        ArchiveImportStatus.Processing => "text-bg-info",
+        ArchiveImportStatus.Completed => "text-bg-success",
+        ArchiveImportStatus.Failed => "text-bg-danger",
+        _ => "text-bg-secondary",
+    };
+
+    /// <summary>How a file's text was read, in words; null when it has not been read.</summary>
+    public static string Label(ExtractionMethod? method) => method switch
+    {
+        ExtractionMethod.Native => "Embedded text",
+        ExtractionMethod.Ocr => "OCR",
+        ExtractionMethod.Mixed => "Embedded text and OCR",
+        _ => "Not yet read",
+    };
+
     /// <summary>"PendingReview" reads badly in a badge.</summary>
     public static string Label(SubmissionStatus status) => status switch
     {

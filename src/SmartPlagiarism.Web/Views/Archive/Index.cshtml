@@ -1,0 +1,280 @@
+@using SmartPlagiarism.Core.DTOs.Archive
+@using SmartPlagiarism.Core.Entities
+@using SmartPlagiarism.Core.Enums
+@model SmartPlagiarism.Web.Models.Admin.ArchiveViewModel
+@{
+    ViewData["Title"] = "Archive";
+    var filter = Model.Filter;
+    var thisPage = Context.Request.Path + Context.Request.QueryString;
+    var years = Model.Overview.DocumentsByYear;
+    var mostInAYear = Math.Max(1, years.Max(year => year.Documents));
+}
+
+@section Head {
+    @if (Model.ImportRunning)
+    {
+        <meta http-equiv="refresh" content="10" />
+    }
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-baseline mb-3 gap-2">
+        <h1 class="h3 mb-0">Archive</h1>
+        <span class="text-body-secondary">@Model.Overview.TotalDocuments.ToString("N0") documents from past years</span>
+    </div>
+
+    <p class="text-body-secondary">
+        Work from before this system existed. Every new submission is compared against it, exactly as against
+        other submissions. Teachers see the archived title and author of a match; students see only
+        &ldquo;University archive&rdquo; and the year.
+    </p>
+
+    <partial name="_StatusMessage" />
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6">Import a ZIP</h2>
+                    <form method="post" asp-action="Import" enctype="multipart/form-data">
+                        <div class="mb-2">
+                            <label for="Package" class="form-label small mb-1">ZIP of PDF, DOCX and PPTX files (up to 1 GB)</label>
+                            <input id="Package" name="Package" type="file" accept=".zip,application/zip" class="form-control form-control-sm" required />
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label for="DefaultYear" class="form-label small mb-1">Default year</label>
+                                <select id="DefaultYear" name="DefaultYear" class="form-select form-select-sm">
+                                    <option value="">None</option>
+                                    @foreach (var year in years.Select(year => year.Year).Reverse())
+                                    {
+                                        <option value="@year">@year</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label for="DefaultDepartmentId" class="form-label small mb-1">Default department</label>
+                                <select id="DefaultDepartmentId" name="DefaultDepartmentId" class="form-select form-select-sm">
+                                    <option value="">None</option>
+                                    @foreach (var department in Model.Departments)
+                                    {
+                                        <option value="@department.Id">@department.Code</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">Import</button>
+                    </form>
+
+                    <details class="mt-3 small">
+                        <summary>How files are dated and titled</summary>
+                        <ul class="mt-2 mb-2 ps-3">
+                            <li>
+                                A year folder in the ZIP dates everything inside it:
+                                <code>2015/cse-reports/thesis.pdf</code> is filed under 2015.
+                            </li>
+                            <li>Files with no year folder get the default year above; with none chosen they are skipped.</li>
+                            <li>The title is the file name, unless a manifest gives one.</li>
+                            <li>Files already in the archive are skipped, so a ZIP can safely be imported again.</li>
+                            <li>Scanned PDFs are read with OCR; Bangla, including Bijoy (SutonnyMJ), is supported.</li>
+                        </ul>
+                        <p class="mb-1">
+                            For authors and exact details, add a <code>@ArchiveLimits.ManifestFileName</code> at the top of the ZIP.
+                            Only the <code>file</code> column is required; any others may be left out:
+                        </p>
+                        <pre class="bg-body-tertiary p-2 rounded mb-0"><code>file,title,author,year,department,course
+2015/thesis.pdf,Smart Irrigation,Karim Ahmed,2015,CSE,CSE400</code></pre>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6">Documents by year</h2>
+                    <table class="table table-sm table-borderless mb-0 align-middle">
+                        <tbody>
+                            @foreach (var year in years)
+                            {
+                                <tr>
+                                    <th scope="row" class="fw-normal small" style="width: 3.5rem;">
+                                        <a asp-action="Index" asp-route-Year="@year.Year">@year.Year</a>
+                                    </th>
+                                    <td>
+                                        <div class="stat-bar" aria-hidden="true">
+                                            <div class="stat-bar-fill bg-primary" style="width: @((year.Documents * 100 / mostInAYear).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                                        </div>
+                                    </td>
+                                    <td class="text-end small" style="width: 4rem;">@year.Documents.ToString("N0")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.Overview.RecentImports.Count > 0)
+    {
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h2 class="h6">Recent imports</h2>
+                @if (Model.ImportRunning)
+                {
+                    <p class="small text-body-secondary mb-2">This page refreshes every 10 seconds while an import runs.</p>
+                }
+                <ul class="list-unstyled mb-0">
+                    @foreach (var import in Model.Overview.RecentImports)
+                    {
+                        var done = import.ImportedFiles + import.SkippedFiles;
+                        var percent = import.TotalFiles == 0 ? 0 : done * 100 / import.TotalFiles;
+                        <li class="border-top py-2">
+                            <div class="d-flex flex-wrap justify-content-between gap-2">
+                                <span>
+                                    <span class="badge @StatusBadge.For(import.Status)">@import.Status</span>
+                                    <span class="fw-semibold">@import.PackageFileName</span>
+                                    <span class="small text-body-secondary">uploaded @import.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</span>
+                                </span>
+                                <span class="small">
+                                    @import.ImportedFiles.ToString("N0") imported,
+                                    @import.SkippedFiles.ToString("N0") skipped
+                                    @if (import.TotalFiles > 0)
+                                    {
+                                        <text>of @import.TotalFiles.ToString("N0")</text>
+                                    }
+                                </span>
+                            </div>
+                            @if (import.Status == ArchiveImportStatus.Processing && import.TotalFiles > 0)
+                            {
+                                <div class="progress mt-2" role="progressbar" aria-label="Import progress"
+                                     aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100" style="height: 0.5rem;">
+                                    <div class="progress-bar" style="width: @percent%"></div>
+                                </div>
+                            }
+                            @if (import.Messages.Count > 0)
+                            {
+                                <details class="mt-1 small" open="@(import.Status == ArchiveImportStatus.Failed)">
+                                    <summary>@import.Messages.Count @(import.Messages.Count == 1 ? "note" : "notes")</summary>
+                                    <ul class="mt-1 mb-0 ps-3 text-body-secondary">
+                                        @foreach (var message in import.Messages)
+                                        {
+                                            <li>@message</li>
+                                        }
+                                    </ul>
+                                </details>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+
+    <form method="get" asp-action="Index" class="card border-0 shadow-sm mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-5">
+                <label for="Search" class="form-label small mb-1">Title, author or file name</label>
+                <input id="Search" name="Search" value="@filter.Search" class="form-control form-control-sm" />
+            </div>
+            <div class="col-6 col-md-2">
+                <label for="Year" class="form-label small mb-1">Year</label>
+                <select id="Year" name="Year" class="form-select form-select-sm">
+                    <option value="">Any</option>
+                    @foreach (var year in years.Select(year => year.Year).Reverse())
+                    {
+                        <option value="@year" selected="@(filter.Year == year)">@year</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label for="DepartmentId" class="form-label small mb-1">Department</label>
+                <select id="DepartmentId" name="DepartmentId" class="form-select form-select-sm">
+                    <option value="">Any</option>
+                    @foreach (var department in Model.Departments)
+                    {
+                        <option value="@department.Id" selected="@(filter.DepartmentId == department.Id)">@department.Code</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filter</button>
+                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Reset</a>
+            </div>
+        </div>
+    </form>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">Year</th>
+                        <th scope="col">Title</th>
+                        <th scope="col">Department</th>
+                        <th scope="col">Read by</th>
+                        <th scope="col" class="text-end">Words</th>
+                        <th scope="col" class="text-end">Matched</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Documents.Items.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center text-body-secondary py-4">
+                                @(Model.Overview.TotalDocuments == 0 ? "The archive is empty. Import a ZIP to start it." : "No documents match these filters.")
+                            </td>
+                        </tr>
+                    }
+                    @foreach (var document in Model.Documents.Items)
+                    {
+                        <tr>
+                            <td>@document.Year</td>
+                            <td>
+                                @document.Title
+                                <span class="d-block small text-body-secondary">
+                                    @(document.Author ?? "Author unknown")
+                                    @if (document.CourseCode is not null)
+                                    {
+                                        <text>&middot; @document.CourseCode</text>
+                                    }
+                                    &middot; @document.FileName
+                                </span>
+                            </td>
+                            <td>@(document.DepartmentCode ?? "-")</td>
+                            <td>
+                                @if (document.ReadBy is null)
+                                {
+                                    <span class="badge text-bg-warning" title="No readable text: it cannot be matched">No text</span>
+                                }
+                                else
+                                {
+                                    @StatusBadge.Label(document.ReadBy)
+                                }
+                            </td>
+                            <td class="text-end">@(document.WordCount?.ToString("N0") ?? "-")</td>
+                            <td class="text-end">@document.TimesMatched.ToString("N0")</td>
+                            <td class="text-end">
+                                @if (document.TimesMatched == 0)
+                                {
+                                    <form method="post" asp-action="Delete" asp-route-id="@document.Id" asp-route-returnUrl="@thisPage" class="d-inline"
+                                          data-confirm="Remove &quot;@document.Title&quot; from the archive?">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="small text-body-secondary" title="Submissions matched it, so it is kept as evidence">Kept</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <partial name="_Pager" model="new PagerViewModel(nameof(ArchiveController.Index), Model.Documents.Page, Model.Documents.TotalPages, page => filter.RouteValues(page))" />
+</div>

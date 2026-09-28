@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/SmartPlagiarism.Web.styles.css" asp-append-version="true" />
+    @await RenderSectionAsync("Head", required: false)
 </head>
 <body class="d-flex flex-column min-vh-100">
     <header>
@@ -62,6 +63,9 @@
                                 </ul>
                             </li>
                             <li class="nav-item">
+                                <a class="@NavClass("Archive", "Index")" asp-controller="Archive" asp-action="Index">Archive</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="@NavClass("Statistics", "Index")" asp-controller="Statistics" asp-action="Index">Statistics</a>
                             </li>
                             <li class="nav-item">
@@ -104,7 +108,6 @@
     <footer class="border-top bg-body-tertiary py-3 mt-auto">
         <div class="container d-flex flex-wrap justify-content-between small text-body-secondary">
             <span>&copy; @DateTime.UtcNow.Year SmartPlagiarism</span>
-            <span>Final-year CSE project</span>
         </div>
     </footer>
 

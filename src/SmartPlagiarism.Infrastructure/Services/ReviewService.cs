@@ -146,8 +146,16 @@ public class ReviewService : IReviewService
                 SubmittedExtractedAt = (DateTime?)candidate.UploadedFile.ExtractedText!.ExtractedAtUtc,
                 SourceFileName = candidate.MatchedUploadedFile!.OriginalFileName,
                 SourceHash = candidate.MatchedUploadedFile.Sha256Hash,
-                SourceSubmissionTitle = candidate.MatchedUploadedFile.Submission.Title,
-                SourceStudent = candidate.MatchedUploadedFile.Submission.StudentProfile.User.FullName,
+                Source = new MatchSource(
+                    candidate.MatchedUploadedFile.SubmissionId,
+                    candidate.MatchedUploadedFile.Submission!.Title,
+                    (int?)candidate.MatchedUploadedFile.Submission!.StudentProfileId,
+                    candidate.MatchedUploadedFile.Submission!.StudentProfile.User.FullName,
+                    candidate.MatchedUploadedFile.Submission!.StudentProfile.StudentNumber,
+                    candidate.MatchedUploadedFile.Submission!.Course.Code,
+                    (int?)candidate.MatchedUploadedFile.ArchiveDocument!.Year,
+                    candidate.MatchedUploadedFile.ArchiveDocument!.Title,
+                    candidate.MatchedUploadedFile.ArchiveDocument!.Author),
                 SourceText = candidate.MatchedUploadedFile.ExtractedText!.FullText,
                 SourceExtractedAt = (DateTime?)candidate.MatchedUploadedFile.ExtractedText!.ExtractedAtUtc,
             })
@@ -182,8 +190,8 @@ public class ReviewService : IReviewService
                     fragments.Select((fragment, index) => new HighlightSpan(fragment.TargetStart, fragment.TargetEnd, index)))),
             new ComparisonSideDto(
                 match.SourceFileName,
-                match.SourceSubmissionTitle,
-                match.SourceStudent,
+                match.Source.Title,
+                match.Source.Owner,
                 HighlightSegmenter.Segment(
                     match.SourceText,
                     fragments.Select((fragment, index) => new HighlightSpan(fragment.SourceStart, fragment.SourceEnd, index)))));
@@ -279,9 +287,16 @@ public class ReviewService : IReviewService
                 match.Id,
                 OwnFileName = match.UploadedFile.OriginalFileName,
                 MatchedFileName = match.MatchedUploadedFile!.OriginalFileName,
-                MatchedSubmissionId = match.MatchedUploadedFile.SubmissionId,
-                MatchedSubmissionTitle = match.MatchedUploadedFile.Submission.Title,
-                MatchedStudentName = match.MatchedUploadedFile.Submission.StudentProfile.User.FullName,
+                Source = new MatchSource(
+                    match.MatchedUploadedFile.SubmissionId,
+                    match.MatchedUploadedFile.Submission!.Title,
+                    (int?)match.MatchedUploadedFile.Submission!.StudentProfileId,
+                    match.MatchedUploadedFile.Submission!.StudentProfile.User.FullName,
+                    match.MatchedUploadedFile.Submission!.StudentProfile.StudentNumber,
+                    match.MatchedUploadedFile.Submission!.Course.Code,
+                    (int?)match.MatchedUploadedFile.ArchiveDocument!.Year,
+                    match.MatchedUploadedFile.ArchiveDocument!.Title,
+                    match.MatchedUploadedFile.ArchiveDocument!.Author),
                 match.SimilarityPercent,
                 match.MatchedFragmentsJson,
             })
@@ -297,9 +312,10 @@ public class ReviewService : IReviewService
                     match.Id,
                     match.OwnFileName,
                     match.MatchedFileName,
-                    match.MatchedSubmissionId,
-                    match.MatchedSubmissionTitle,
-                    match.MatchedStudentName,
+                    match.Source.SubmissionId,
+                    match.Source.Title,
+                    match.Source.Owner,
+                    match.Source.ArchiveYear,
                     match.SimilarityPercent,
                     MatchedFragmentSerializer.Deserialize(match.MatchedFragmentsJson).Count))
                 .ToList());

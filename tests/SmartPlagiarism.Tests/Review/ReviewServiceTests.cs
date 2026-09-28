@@ -148,6 +148,7 @@ public class ReviewServiceTests
 
         var match = detail.Result.Matches.Should().ContainSingle().Subject;
         match.MatchedSubmissionId.Should().Be(originalId);
+        match.ArchiveYear.Should().BeNull("the source is a submission, not the archive");
         match.OwnFileName.Should().Be("copy.docx");
         match.MatchedFileName.Should().Be("original.docx");
         match.PassageCount.Should().Be(1);

@@ -8,9 +8,18 @@ public class UploadedFile
 {
     public int Id { get; set; }
 
-    public int SubmissionId { get; set; }
+    /// <summary>
+    /// The submission the file belongs to - or null for an archive document's
+    /// file. Exactly one of this and <see cref="ArchiveDocumentId"/> is set,
+    /// which the database enforces.
+    /// </summary>
+    public int? SubmissionId { get; set; }
 
-    public Submission Submission { get; set; } = null!;
+    public Submission? Submission { get; set; }
+
+    public int? ArchiveDocumentId { get; set; }
+
+    public ArchiveDocument? ArchiveDocument { get; set; }
 
     /// <summary>Filename as the student uploaded it. Never used to build a storage path.</summary>
     public string OriginalFileName { get; set; } = string.Empty;

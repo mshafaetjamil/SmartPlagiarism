@@ -18,6 +18,9 @@ namespace SmartPlagiarism.Infrastructure.Storage;
 /// </summary>
 public class LocalFileStorageService : IFileStorageService
 {
+    /// <summary>Import packages live here, apart from the hash-sharded documents.</summary>
+    private const string PackageFolder = "imports";
+
     private readonly string _rootPath;
     private readonly IFileUploadValidator _validator;
     private readonly ILogger<LocalFileStorageService> _logger;
@@ -53,6 +56,42 @@ public class LocalFileStorageService : IFileStorageService
             useAsync: true);
 
         return Task.FromResult(stream);
+    }
+
+    public async Task<string> StorePackageAsync(Stream content, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+
+        // A fresh random name: packages are not deduplicated, and nothing from the
+        // upload - least of all its file name - is used to build the path.
+        var relativePath = $"{PackageFolder}/{Guid.NewGuid():N}.zip";
+        var absolutePath = ResolveWithinRoot(relativePath);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(absolutePath)!);
+
+        await using var target = new FileStream(
+            absolutePath,
+            FileMode.CreateNew,
+            FileAccess.Write,
+            FileShare.None,
+            bufferSize: 64 * 1024,
+            useAsync: true);
+
+        await content.CopyToAsync(target, cancellationToken);
+
+        return relativePath;
+    }
+
+    public Task DeleteAsync(string storagePath, CancellationToken cancellationToken = default)
+    {
+        var absolutePath = ResolveWithinRoot(storagePath);
+
+        if (File.Exists(absolutePath))
+        {
+            File.Delete(absolutePath);
+        }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>

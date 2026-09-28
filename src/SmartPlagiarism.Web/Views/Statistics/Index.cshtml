@@ -1,5 +1,4 @@
 @using System.Globalization
-@using SmartPlagiarism.Core.Enums
 @using SmartPlagiarism.Core.Review
 @model SmartPlagiarism.Core.DTOs.Admin.SystemStatisticsDto
 @{
@@ -106,14 +105,8 @@
                         <tbody>
                             @foreach (var method in Model.ExtractionMethods)
                             {
-                                var label = method.Method switch
-                                {
-                                    ExtractionMethod.Native => "Embedded text",
-                                    ExtractionMethod.Ocr => "OCR",
-                                    _ => "Text and OCR",
-                                };
                                 <tr>
-                                    <th scope="row" class="fw-normal small text-nowrap" style="width: 6rem;">@label</th>
+                                    <th scope="row" class="fw-normal small text-nowrap" style="width: 10rem;">@StatusBadge.Label(method.Method)</th>
                                     <td><div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill bg-info" style="width: @Width(method.FileCount, mostFiles)"></div></div></td>
                                     <td class="text-end small" style="width: 3rem;">@method.FileCount</td>
                                 </tr>

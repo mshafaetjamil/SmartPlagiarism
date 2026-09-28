@@ -38,5 +38,18 @@ public class UploadedFileConfiguration : IEntityTypeConfiguration<UploadedFile>
             .WithMany(submission => submission.Files)
             .HasForeignKey(file => file.SubmissionId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // One file per archive document, deleted with it.
+        builder.HasOne(file => file.ArchiveDocument)
+            .WithOne(document => document.File)
+            .HasForeignKey<UploadedFile>(file => file.ArchiveDocumentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // A file belongs to a submission or to the archive - never both, never
+        // neither. Enforced by the database, since everything downstream
+        // (reports, the match viewer) relies on it.
+        builder.ToTable(table => table.HasCheckConstraint(
+            "CK_UploadedFiles_OneOwner",
+            "([SubmissionId] IS NULL AND [ArchiveDocumentId] IS NOT NULL) OR ([SubmissionId] IS NOT NULL AND [ArchiveDocumentId] IS NULL)"));
     }
 }

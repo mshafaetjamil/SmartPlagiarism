@@ -10,4 +10,6 @@ public static class AuditEntityTypes
     public const string Course = "Course";
     public const string Semester = "Semester";
     public const string ApiKey = "ApiKey";
+    public const string ArchiveImport = "ArchiveImport";
+    public const string ArchiveDocument = "ArchiveDocument";
 }

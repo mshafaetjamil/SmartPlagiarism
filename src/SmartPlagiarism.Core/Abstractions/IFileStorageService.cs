@@ -29,4 +29,14 @@ public interface IFileStorageService
     /// The path resolves outside the storage root.
     /// </exception>
     Task<Stream> OpenReadAsync(string storagePath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Keeps an uploaded import package (a ZIP) until its import has run. Kept
+    /// apart from the hash-named document store: a package is never a document.
+    /// </summary>
+    /// <returns>The package's storage path, for <see cref="OpenReadAsync"/> and <see cref="DeleteAsync"/>.</returns>
+    Task<string> StorePackageAsync(Stream content, CancellationToken cancellationToken = default);
+
+    /// <summary>Removes a stored package. A path that no longer exists is not an error.</summary>
+    Task DeleteAsync(string storagePath, CancellationToken cancellationToken = default);
 }

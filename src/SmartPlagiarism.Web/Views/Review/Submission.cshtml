@@ -106,8 +106,8 @@
                     <table class="table mb-0 align-middle">
                         <thead>
                             <tr>
-                                <th scope="col">Matched submission</th>
-                                <th scope="col">Student</th>
+                                <th scope="col">Matched source</th>
+                                <th scope="col">Written by</th>
                                 <th scope="col">Files</th>
                                 <th scope="col" class="text-end">Passages</th>
                                 <th scope="col" class="text-end">Similarity</th>
@@ -119,9 +119,16 @@
                             {
                                 <tr>
                                     <td>
-                                        <a asp-action="Submission" asp-route-id="@match.MatchedSubmissionId">@match.MatchedSubmissionTitle</a>
+                                        @if (match.MatchedSubmissionId is { } matchedId)
+                                        {
+                                            <a asp-action="Submission" asp-route-id="@matchedId">@match.SourceTitle</a>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge text-bg-dark me-1">Archive @match.ArchiveYear</span>@match.SourceTitle
+                                        }
                                     </td>
-                                    <td>@match.MatchedStudentName</td>
+                                    <td>@match.SourceOwner</td>
                                     <td class="small">
                                         @match.OwnFileName
                                         <span class="text-body-secondary">&harr;</span>
@@ -162,15 +169,7 @@
                                 <span class="d-block small text-body-secondary">@file.ContentType</span>
                             </td>
                             <td class="text-end">@StatusBadge.FormatBytes(file.SizeBytes)</td>
-                            <td>
-                                @(file.ExtractionMethod switch
-                                {
-                                    ExtractionMethod.Native => "Embedded text",
-                                    ExtractionMethod.Ocr => "OCR",
-                                    ExtractionMethod.Mixed => "Embedded text and OCR",
-                                    _ => "Not yet read",
-                                })
-                            </td>
+                            <td>@StatusBadge.Label(file.ExtractionMethod)</td>
                             <td class="text-end">@(file.WordCount?.ToString("N0") ?? "-")</td>
                         </tr>
                         @if (file.Warnings.Count > 0)

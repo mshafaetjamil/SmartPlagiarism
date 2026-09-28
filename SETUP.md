@@ -5,7 +5,7 @@ or **Linux**. Follow the section for your OS in Part 1, then Parts 2–5 are the
 same everywhere.
 
 The same clone works on all three. You can develop on one machine and continue on
-another — see [Working across two machines](#7-working-across-two-machines).
+another — see [Working across two machines](#9-working-across-two-machines).
 
 ---
 
@@ -279,7 +279,43 @@ beyond that. In Development, the full contract is at **/swagger**.
 
 ---
 
-## 7. Everyday commands
+## 7. Archive of past years' work (2010 onwards)
+
+New submissions are compared against every earlier submission **and** against
+the archive: reports and theses from before this system existed. Fill it once
+from the old records; after that, new work builds up on its own.
+
+1. Sign in as an admin and open **Archive**.
+2. Upload a ZIP (up to 1 GB, 20,000 files) of PDF, DOCX and PPTX files. It is
+   imported in the background; the page shows progress and refreshes itself.
+3. Each file needs a year, taken from the first of:
+   - a `manifest.csv` row for it (see below);
+   - a year folder in its path, e.g. `2015/cse/thesis.pdf`;
+   - the **Default year** chosen on the upload form.
+
+   A file with none of these is skipped, and the import's notes say so.
+
+An optional `manifest.csv` at the top of the ZIP adds the details a file
+cannot supply itself. Only `file` is required, columns may be in any order,
+and a file can be named by its path in the ZIP or just by its name:
+
+```csv
+file,title,author,year,department,course
+2015/cse/thesis.pdf,Smart Irrigation,Karim Ahmed,2015,CSE,CSE400
+```
+
+- Files already in the archive (same bytes) are skipped, so re-uploading a ZIP
+  is harmless, and an import interrupted by a restart resumes on its own.
+- Scanned PDFs go through OCR (section 5), and Bangla, including Bijoy
+  (SutonnyMJ), is read as it is for submissions.
+- Teachers see a match as *Archive 2015: Smart Irrigation - Karim Ahmed*;
+  students see only *University archive (2015)*.
+- A document can be deleted until a submission has matched it; after that it
+  is kept as evidence.
+
+---
+
+## 8. Everyday commands
 
 ```bash
 dotnet build                                    # compile everything
@@ -296,7 +332,7 @@ dotnet ef database update      -p src/SmartPlagiarism.Infrastructure -s src/Smar
 
 ---
 
-## 8. Working across two machines
+## 9. Working across two machines
 
 1. **Finish on machine A:** `git add -A && git commit && git push`
 2. **Continue on machine B:** `git pull`, then `dotnet run`.
@@ -314,7 +350,7 @@ empty database (with fresh demo accounts) and none of machine A's uploaded files
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Symptom | Cause and fix |
 | --- | --- |

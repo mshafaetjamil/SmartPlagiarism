@@ -5,6 +5,7 @@ using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.DTOs.Reports;
 using SmartPlagiarism.Engine.Matching;
 using SmartPlagiarism.Infrastructure.Data;
+using SmartPlagiarism.Infrastructure.Services;
 
 namespace SmartPlagiarism.Infrastructure.Reports;
 
@@ -110,11 +111,16 @@ public class ReportService : IReportService
                     match.UploadedFileId,
                     match.UploadedFile.OriginalFileName,
                     match.MatchedUploadedFileId!.Value,
-                    match.MatchedUploadedFile!.Submission.StudentProfileId,
-                    match.MatchedUploadedFile.Submission.Title,
-                    match.MatchedUploadedFile.Submission.Course.Code,
-                    match.MatchedUploadedFile.Submission.StudentProfile.User.FullName,
-                    match.MatchedUploadedFile.Submission.StudentProfile.StudentNumber,
+                    new MatchSource(
+                        match.MatchedUploadedFile!.SubmissionId,
+                        match.MatchedUploadedFile.Submission!.Title,
+                        (int?)match.MatchedUploadedFile.Submission!.StudentProfileId,
+                        match.MatchedUploadedFile.Submission!.StudentProfile.User.FullName,
+                        match.MatchedUploadedFile.Submission!.StudentProfile.StudentNumber,
+                        match.MatchedUploadedFile.Submission!.Course.Code,
+                        (int?)match.MatchedUploadedFile.ArchiveDocument!.Year,
+                        match.MatchedUploadedFile.ArchiveDocument!.Title,
+                        match.MatchedUploadedFile.ArchiveDocument!.Author),
                     match.SimilarityPercent,
                     match.MatchedFragmentsJson))
                 .ToListAsync(cancellationToken);
@@ -122,10 +128,8 @@ public class ReportService : IReportService
         matches = [.. matches.OrderByDescending(match => match.SimilarityPercent)];
 
         string Describe(MatchRow match) => forStaff
-            ? $"{match.SourceTitle} - {match.SourceStudentName} ({match.SourceStudentNumber})"
-            : match.SourceStudentProfileId == submission.StudentProfileId
-                ? $"Your own submission \"{match.SourceTitle}\""
-                : $"Another student's submission ({match.SourceCourseCode})";
+            ? match.Source.StaffLabel
+            : match.Source.StudentLabel(submission.StudentProfileId);
 
         return new SubmissionReportData(
             _options.InstitutionName,
@@ -258,11 +262,7 @@ public class ReportService : IReportService
         int OwnFileId,
         string OwnFileName,
         int SourceFileId,
-        int SourceStudentProfileId,
-        string SourceTitle,
-        string SourceCourseCode,
-        string SourceStudentName,
-        string SourceStudentNumber,
+        MatchSource Source,
         decimal SimilarityPercent,
         string FragmentsJson);
 }

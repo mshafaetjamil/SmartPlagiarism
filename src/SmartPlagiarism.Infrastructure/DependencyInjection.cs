@@ -13,6 +13,7 @@ using SmartPlagiarism.Engine.Ocr;
 using SmartPlagiarism.Engine.Similarity;
 using SmartPlagiarism.Infrastructure.Admin;
 using SmartPlagiarism.Infrastructure.Analysis;
+using SmartPlagiarism.Infrastructure.Archive;
 using SmartPlagiarism.Infrastructure.Data;
 using SmartPlagiarism.Infrastructure.Reports;
 using SmartPlagiarism.Infrastructure.Services;
@@ -133,9 +134,16 @@ public static class DependencyInjection
     private static void AddAnalysis(IServiceCollection services)
     {
         services.AddSingleton<IAnalysisQueue, ChannelAnalysisQueue>();
+        services.AddScoped<DocumentIndexer>();
         services.AddScoped<ISubmissionAnalyzer, SubmissionAnalyzer>();
         services.AddScoped<IAnalysisService, AnalysisService>();
         services.AddHostedService<AnalysisWorker>();
+
+        // Archive imports index files the same way, on their own queue and worker.
+        services.AddSingleton<IArchiveImportQueue, ChannelArchiveImportQueue>();
+        services.AddScoped<IArchiveImporter, ArchiveImporter>();
+        services.AddScoped<IArchiveService, ArchiveService>();
+        services.AddHostedService<ArchiveImportWorker>();
     }
 
     /// <summary>

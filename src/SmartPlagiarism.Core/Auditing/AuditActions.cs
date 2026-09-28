@@ -17,4 +17,5 @@ public static class AuditActions
     public const string RecordDeleted = "RecordDeleted";
     public const string ApiKeyCreated = "ApiKeyCreated";
     public const string ApiKeyRevoked = "ApiKeyRevoked";
+    public const string ArchiveImportQueued = "ArchiveImportQueued";
 }
