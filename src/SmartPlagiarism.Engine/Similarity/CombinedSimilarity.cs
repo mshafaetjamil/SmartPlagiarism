@@ -4,10 +4,15 @@ namespace SmartPlagiarism.Engine.Similarity;
 /// One weighted score from several algorithms, so a single number can be shown to
 /// a teacher without hiding which evidence produced it.
 ///
+/// It is reported beside each matched source as supporting evidence, not as the
+/// headline percentage (see <see cref="SimilarityPipeline"/>): it answers "how
+/// alike are these two documents", which is the question for reworded copying,
+/// not "how much of this one came from the other".
+///
 /// <para><b>Default weights and why.</b></para>
 /// <list type="bullet">
 ///   <item><description>
-///     <b>N-gram overlap, 0.50</b> - matching three consecutive words in order is
+///     <b>N-gram containment, 0.50</b> - matching three consecutive words in order is
 ///     the least likely thing to happen by accident, so verbatim copying is the
 ///     strongest evidence available and carries the most weight.
 ///   </description></item>
@@ -61,7 +66,10 @@ public sealed class CombinedSimilarity : ISimilarityAlgorithm
             new WeightedAlgorithm(new JaccardSimilarity(), 0.15),
         ]);
 
-    public string Name => "combined";
+    /// <summary>The key the blended score is reported under beside its components.</summary>
+    public const string ScoreName = "combined";
+
+    public string Name => ScoreName;
 
     /// <summary>Sum of the configured weights; the score is divided by this.</summary>
     public double TotalWeight { get; }

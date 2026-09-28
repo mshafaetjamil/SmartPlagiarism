@@ -33,6 +33,19 @@ public static class AllowedFileFormats
     public static string DisplayList { get; } =
         string.Join(", ", All.Select(format => format.Extension.TrimStart('.').ToUpperInvariant()));
 
+    /// <summary>
+    /// Office's pre-2007 binary formats, and what to do with them. They are not
+    /// read: their text sits in a proprietary binary structure no maintained
+    /// .NET library parses reliably, while every Word and PowerPoint since 2007
+    /// saves the XML-based format in one step.
+    /// </summary>
+    public static string? LegacyFormatAdvice(string? extension) => extension?.ToLowerInvariant() switch
+    {
+        ".doc" => "is in the old Word format (.doc). Open it in Word, choose File > Save As > Word Document (.docx), and upload that.",
+        ".ppt" => "is in the old PowerPoint format (.ppt). Open it in PowerPoint, choose File > Save As > PowerPoint Presentation (.pptx), and upload that.",
+        _ => null,
+    };
+
     /// <summary>Finds the format for an extension, or null when it is not allowed.</summary>
     public static AllowedFileFormat? Find(string? extension) =>
         string.IsNullOrWhiteSpace(extension)

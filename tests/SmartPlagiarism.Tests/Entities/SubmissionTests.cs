@@ -157,6 +157,32 @@ public class SubmissionTests
     }
 
     [Fact]
+    public void AnalysisAttempts_CountStartsUntilARequeueResetsThem()
+    {
+        var submission = new Submission();
+
+        for (var attempt = 1; attempt <= Submission.MaxAnalysisAttempts; attempt++)
+        {
+            submission.CanResumeAnalysis.Should().BeTrue();
+            submission.MarkProcessing();
+            submission.AnalysisAttempts.Should().Be(attempt);
+
+            if (attempt < Submission.MaxAnalysisAttempts)
+            {
+                submission.ResumeInterruptedAnalysis();
+            }
+        }
+
+        submission.CanResumeAnalysis.Should().BeFalse("every attempt was interrupted");
+
+        submission.MarkFailed("Given up.");
+        submission.RequeueForAnalysis();
+
+        submission.AnalysisAttempts.Should().Be(0, "a teacher's re-run starts afresh");
+        submission.CanResumeAnalysis.Should().BeTrue();
+    }
+
+    [Fact]
     public void ResumeInterruptedAnalysis_FromProcessing_ReturnsToQueued()
     {
         var submission = SubmissionInAnalysisState(AnalysisStatus.Processing);

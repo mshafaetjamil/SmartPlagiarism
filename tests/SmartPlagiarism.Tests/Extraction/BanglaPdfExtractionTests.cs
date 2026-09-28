@@ -48,6 +48,26 @@ public class BanglaPdfExtractionTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public async Task GlyphsWithNoUnicode_DoNotSplitTheWordsAroundThem()
+    {
+        // The damaged conjuncts carry no text but still take up room on the line.
+        // Reading that room as a gap between words would split words apart and
+        // defeat the drawing-order repair. CoreText draws a space glyph between
+        // every pair of words, so the layer's own spaces are the reference.
+        await using var pdf = Fixture();
+        var result = await new PdfTextExtractor(new NullOcrService("not installed"), s_renderer).ExtractAsync(pdf);
+
+        await using var reference = Fixture();
+        using var document = UglyToad.PdfPig.PdfDocument.Open(reference);
+        var spacedByTheFile = BengaliText.RepairDrawingOrder(document.GetPage(1).Text);
+
+        Words(result.FullText).Should().Equal(Words(spacedByTheFile));
+    }
+
+    private static string[] Words(string text) =>
+        text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+
+    [Fact]
     public async Task DamagedBanglaLayer_IsReplacedByCleanerOcrText()
     {
         var ocr = new ScriptedOcrService(TypedText);
@@ -80,7 +100,7 @@ public class BanglaPdfExtractionTests(ITestOutputHelper output)
         // DOCX stores Unicode as typed, so nothing about Bangla there needs repair.
         var docx = DocxFixture.Create([TypedText]);
 
-        var result = await new DocxTextExtractor().ExtractAsync(new MemoryStream(docx));
+        var result = await new DocxTextExtractor(new NullOcrService("not needed for typed text")).ExtractAsync(new MemoryStream(docx));
 
         result.FullText.Trim().Should().Be(TypedText);
         BengaliText.Assess(result.FullText).IsDamaged.Should().BeFalse();

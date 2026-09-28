@@ -30,7 +30,7 @@ public class StatisticsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Retry(int id, CancellationToken cancellationToken)
     {
-        var outcome = await _analysis.RequeueAsync(id, User.FindFirstValue(ClaimTypes.NameIdentifier)!, cancellationToken);
+        var outcome = await _analysis.RequeueAsync(id, SubmissionViewer.ForAdmin(User.FindFirstValue(ClaimTypes.NameIdentifier)!), cancellationToken);
 
         TempData["StatusMessage"] = outcome switch
         {

@@ -46,6 +46,67 @@ internal static class PptxFixture
         return stream.ToArray();
     }
 
+    /// <summary>
+    /// A one-slide deck whose text box holds the given DrawingML paragraphs
+    /// (the a prefix is declared), for constructs such as line breaks.
+    /// </summary>
+    /// <param name="smartArtParagraphs">Text for a SmartArt diagram on the slide, if any.</param>
+    /// <param name="picture">A PNG placed on the slide beside the text box, if any.</param>
+    internal static byte[] FromParagraphXml(
+        string paragraphsXml,
+        IReadOnlyList<string>? smartArtParagraphs = null,
+        byte[]? picture = null)
+    {
+        using var stream = new MemoryStream();
+
+        using (var document = PresentationDocument.Create(stream, PresentationDocumentType.Presentation))
+        {
+            var presentationPart = document.AddPresentationPart();
+            var slidePart = presentationPart.AddNewPart<SlidePart>();
+
+            var pictureXml = picture is null
+                ? string.Empty
+                : """
+                  <p:pic><p:nvPicPr><p:cNvPr id="3" name="Picture"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>
+                    <p:blipFill><a:blip r:embed="rIdPicture"/></p:blipFill><p:spPr/></p:pic>
+                  """;
+
+            Write(slidePart, $"""
+                <p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+                  xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+                  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                  <p:cSld><p:spTree><p:sp><p:txBody><a:bodyPr/>{paragraphsXml}</p:txBody></p:sp>{pictureXml}</p:spTree></p:cSld>
+                </p:sld>
+                """);
+
+            if (picture is not null)
+            {
+                using var imageStream = slidePart.AddImagePart(ImagePartType.Png, "rIdPicture").GetStream(FileMode.Create);
+                imageStream.Write(picture);
+            }
+
+            if (smartArtParagraphs is not null)
+            {
+                Write(slidePart.AddNewPart<DiagramDataPart>(), SmartArtXml.DataModel(smartArtParagraphs));
+            }
+
+            presentationPart.Presentation = new Presentation(new SlideIdList(new SlideId
+            {
+                Id = 256U,
+                RelationshipId = presentationPart.GetIdOfPart(slidePart),
+            }));
+            presentationPart.Presentation.Save();
+        }
+
+        return stream.ToArray();
+    }
+
+    private static void Write(OpenXmlPart part, string xml)
+    {
+        using var writer = new StreamWriter(part.GetStream(FileMode.Create));
+        writer.Write(xml);
+    }
+
     private static Slide BuildSlide(IReadOnlyList<string> textBoxes, string? latinFont)
     {
         var shapeTree = new ShapeTree(

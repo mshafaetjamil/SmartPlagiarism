@@ -96,6 +96,19 @@ public class FileUploadValidatorTests
         result.ErrorMessage.Should().Contain("not an accepted file type");
     }
 
+    [Theory]
+    [InlineData("report.doc", "Word Document (.docx)")]
+    [InlineData("slides.PPT", "PowerPoint Presentation (.pptx)")]
+    public void OldOfficeFormat_IsRefusedWithHowToConvertIt(string fileName, string advice)
+    {
+        using var content = new MemoryStream([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]);
+
+        var result = new FileUploadValidator().Validate(fileName, content.Length, content);
+
+        result.IsValid.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("Save As").And.Contain(advice);
+    }
+
     // ---------------- magic bytes ----------------
 
     [Fact]

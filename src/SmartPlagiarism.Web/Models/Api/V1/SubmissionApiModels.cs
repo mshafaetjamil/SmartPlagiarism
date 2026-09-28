@@ -59,6 +59,7 @@ public sealed record SubmissionApiResponse(
             ? new SubmissionApiResult(
                 result.OverallSimilarityPercent,
                 SimilarityBands.Classify(result.OverallSimilarityPercent),
+                result.CommonTextPercent,
                 result.AnalyzedAtUtc,
                 result.EngineVersion,
                 result.MatchCount)
@@ -67,9 +68,13 @@ public sealed record SubmissionApiResponse(
 }
 
 /// <param name="SimilarityBand">Low below 20%, Moderate to 50%, High above - as on the web pages.</param>
+/// <param name="CommonTextPercent">
+/// Share set aside as text most of the course shares (a cover page, a declaration), not counted.
+/// </param>
 public sealed record SubmissionApiResult(
     decimal OverallSimilarityPercent,
     SimilarityBand SimilarityBand,
+    decimal CommonTextPercent,
     DateTime AnalyzedAtUtc,
     string EngineVersion,
     int MatchedSources);

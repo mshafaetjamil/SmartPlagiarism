@@ -14,8 +14,9 @@ public abstract class ChannelWorkQueue
 {
     private readonly Channel<int> _channel = Channel.CreateUnbounded<int>(new UnboundedChannelOptions
     {
-        // One worker drains each queue, so work is done in the order it arrived.
-        SingleReader = true,
+        // A worker may read with several loops at once (QueueWorker.Concurrency);
+        // items still leave in the order they arrived.
+        SingleReader = false,
         SingleWriter = false,
     });
 

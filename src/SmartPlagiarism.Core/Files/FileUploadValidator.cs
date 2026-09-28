@@ -52,6 +52,11 @@ public class FileUploadValidator : IFileUploadValidator
 
         var format = AllowedFileFormats.Find(Path.GetExtension(safeFileName));
 
+        if (format is null && AllowedFileFormats.LegacyFormatAdvice(Path.GetExtension(safeFileName)) is { } advice)
+        {
+            return FileValidationResult.Invalid($"'{safeFileName}' {advice}");
+        }
+
         if (format is null)
         {
             return FileValidationResult.Invalid(

@@ -9,6 +9,7 @@ using SmartPlagiarism.Core.Entities;
 using SmartPlagiarism.Core.Enums;
 using SmartPlagiarism.Core.Review;
 using SmartPlagiarism.Engine.Matching;
+using SmartPlagiarism.Engine.Similarity;
 using SmartPlagiarism.Infrastructure.Data;
 
 namespace SmartPlagiarism.Infrastructure.Services;
@@ -27,11 +28,12 @@ public class ReviewService : IReviewService
 
     public async Task<PagedResult<ReviewSubmissionListItemDto>> GetSubmissionsAsync(
         ReviewSubmissionQuery query,
+        string teacherUserId,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        var filtered = Filter(_context.Submissions.AsNoTracking(), query);
+        var filtered = Filter(_context.Submissions.AsNoTracking().VisibleToTeacher(_context, teacherUserId), query);
 
         var totalCount = await filtered.CountAsync(cancellationToken);
         var page = PagedResult<ReviewSubmissionListItemDto>.ClampPage(query.Page, totalCount, ReviewSubmissionQuery.PageSize);
@@ -58,10 +60,12 @@ public class ReviewService : IReviewService
 
     public async Task<ReviewSubmissionDetailDto?> GetSubmissionAsync(
         int submissionId,
+        string teacherUserId,
         CancellationToken cancellationToken = default)
     {
         var submission = await _context.Submissions
             .AsNoTracking()
+            .VisibleToTeacher(_context, teacherUserId)
             .Where(candidate => candidate.Id == submissionId)
             .Select(candidate => new
             {
@@ -73,6 +77,7 @@ public class ReviewService : IReviewService
                 SemesterName = candidate.Semester.Name,
                 StudentName = candidate.StudentProfile.User.FullName,
                 candidate.StudentProfile.StudentNumber,
+                candidate.StudentProfileId,
                 candidate.SubmittedAtUtc,
                 candidate.AnalysisStatus,
                 candidate.AnalysisError,
@@ -123,19 +128,29 @@ public class ReviewService : IReviewService
                 file.Extraction?.WordCount,
                 file.Extraction?.Warnings ?? []))
                 .ToList(),
-            await GetResultAsync(submissionId, cancellationToken));
+            await GetResultAsync(submissionId, submission.StudentProfileId, teacherUserId, cancellationToken),
+            await GetMatchedByAsync(submissionId, submission.StudentProfileId, teacherUserId, cancellationToken));
     }
 
-    public async Task<ComparisonDto?> GetComparisonAsync(int matchId, CancellationToken cancellationToken = default)
+    public async Task<ComparisonDto?> GetComparisonAsync(int matchId, string teacherUserId, CancellationToken cancellationToken = default)
     {
+        // Either side in the teacher's department will do: the source is the
+        // evidence for their student's match, and their student's work is the
+        // evidence when a later submission from elsewhere copied it.
+        var visible = _context.Submissions.VisibleToTeacher(_context, teacherUserId);
+
         var match = await _context.MatchedDocuments
             .AsNoTracking()
-            .Where(candidate => candidate.Id == matchId && candidate.MatchedUploadedFileId != null)
+            .Where(candidate => candidate.Id == matchId
+                && candidate.MatchedUploadedFileId != null
+                && (visible.Any(submission => submission.Id == candidate.PlagiarismResult.SubmissionId)
+                    || visible.Any(submission => submission.Id == candidate.MatchedUploadedFile!.SubmissionId)))
             .Select(candidate => new
             {
                 candidate.Id,
                 candidate.SimilarityPercent,
                 candidate.MatchedFragmentsJson,
+                candidate.ComponentScoresJson,
                 candidate.PlagiarismResult.SubmissionId,
                 candidate.PlagiarismResult.AnalyzedAtUtc,
                 SubmissionTitle = candidate.PlagiarismResult.Submission.Title,
@@ -178,6 +193,7 @@ public class ReviewService : IReviewService
             match.SubmissionId,
             match.SubmissionTitle,
             match.SimilarityPercent,
+            ComponentScoreSerializer.Deserialize(match.ComponentScoresJson),
             fragments.Count,
             string.Equals(match.SubmittedHash, match.SourceHash, StringComparison.OrdinalIgnoreCase),
             changedSince,
@@ -231,6 +247,7 @@ public class ReviewService : IReviewService
         }
 
         var submission = await _context.Submissions
+            .VisibleToTeacher(_context, teacherUserId)
             .FirstOrDefaultAsync(candidate => candidate.Id == submissionId, cancellationToken);
 
         if (submission is null)
@@ -266,12 +283,23 @@ public class ReviewService : IReviewService
         return ReviewDecisionOutcome.Recorded;
     }
 
-    private async Task<ReviewResultDto?> GetResultAsync(int submissionId, CancellationToken cancellationToken)
+    private async Task<ReviewResultDto?> GetResultAsync(
+        int submissionId,
+        int studentProfileId,
+        string teacherUserId,
+        CancellationToken cancellationToken)
     {
         var result = await _context.PlagiarismResults
             .AsNoTracking()
             .Where(candidate => candidate.SubmissionId == submissionId)
-            .Select(candidate => new { candidate.Id, candidate.OverallSimilarityPercent, candidate.AnalyzedAtUtc, candidate.EngineVersion })
+            .Select(candidate => new
+            {
+                candidate.Id,
+                candidate.OverallSimilarityPercent,
+                candidate.CommonTextPercent,
+                candidate.AnalyzedAtUtc,
+                candidate.EngineVersion,
+            })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (result is null)
@@ -302,8 +330,11 @@ public class ReviewService : IReviewService
             })
             .ToListAsync(cancellationToken);
 
+        var openable = await OpenableAsync(matches.Select(match => match.Source.SubmissionId), teacherUserId, cancellationToken);
+
         return new ReviewResultDto(
             result.OverallSimilarityPercent,
+            result.CommonTextPercent,
             result.AnalyzedAtUtc,
             result.EngineVersion,
             matches
@@ -317,8 +348,65 @@ public class ReviewService : IReviewService
                     match.Source.Owner,
                     match.Source.ArchiveYear,
                     match.SimilarityPercent,
-                    MatchedFragmentSerializer.Deserialize(match.MatchedFragmentsJson).Count))
+                    MatchedFragmentSerializer.Deserialize(match.MatchedFragmentsJson).Count,
+                    match.Source.IsOwnEarlierWorkOf(studentProfileId),
+                    match.Source.SubmissionId is { } id && openable.Contains(id)))
                 .ToList());
+    }
+
+    /// <summary>Later submissions whose results matched one of this submission's files.</summary>
+    private async Task<IReadOnlyList<ReviewReverseMatchDto>> GetMatchedByAsync(
+        int submissionId,
+        int studentProfileId,
+        string teacherUserId,
+        CancellationToken cancellationToken)
+    {
+        var rows = await _context.MatchedDocuments
+            .AsNoTracking()
+            .Where(match => match.MatchedUploadedFile!.SubmissionId == submissionId
+                && match.PlagiarismResult.SubmissionId != submissionId)
+            .Select(match => new
+            {
+                match.Id,
+                match.PlagiarismResult.SubmissionId,
+                match.PlagiarismResult.Submission.Title,
+                StudentName = match.PlagiarismResult.Submission.StudentProfile.User.FullName,
+                match.PlagiarismResult.Submission.StudentProfileId,
+                match.PlagiarismResult.Submission.SubmittedAtUtc,
+                match.SimilarityPercent,
+            })
+            .ToListAsync(cancellationToken);
+
+        var openable = await OpenableAsync(rows.Select(row => (int?)row.SubmissionId), teacherUserId, cancellationToken);
+
+        return
+        [
+            .. rows
+                .OrderByDescending(row => row.SimilarityPercent)
+                .Select(row => new ReviewReverseMatchDto(
+                    row.Id,
+                    row.SubmissionId,
+                    row.Title,
+                    row.StudentName,
+                    row.SubmittedAtUtc,
+                    row.SimilarityPercent,
+                    row.StudentProfileId == studentProfileId,
+                    openable.Contains(row.SubmissionId))),
+        ];
+    }
+
+    /// <summary>Which of these submissions the teacher may open, to link only those.</summary>
+    private async Task<HashSet<int>> OpenableAsync(IEnumerable<int?> submissionIds, string teacherUserId, CancellationToken cancellationToken)
+    {
+        var ids = submissionIds.OfType<int>().Distinct().ToList();
+
+        return ids.Count == 0
+            ? []
+            : await _context.Submissions
+                .VisibleToTeacher(_context, teacherUserId)
+                .Where(submission => ids.Contains(submission.Id))
+                .Select(submission => submission.Id)
+                .ToHashSetAsync(cancellationToken);
     }
 
     private static IQueryable<Submission> Filter(IQueryable<Submission> submissions, ReviewSubmissionQuery query)

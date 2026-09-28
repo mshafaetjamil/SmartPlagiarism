@@ -16,6 +16,11 @@ public class MatchedDocumentConfiguration : IEntityTypeConfiguration<MatchedDocu
         builder.Property(match => match.MatchedFragmentsJson)
             .IsRequired();
 
+        // A handful of named ratios; bounded so it is never a MAX column.
+        builder.Property(match => match.ComponentScoresJson)
+            .HasMaxLength(500)
+            .IsRequired();
+
         builder.HasIndex(match => match.MatchedUploadedFileId);
 
         builder.HasOne(match => match.PlagiarismResult)

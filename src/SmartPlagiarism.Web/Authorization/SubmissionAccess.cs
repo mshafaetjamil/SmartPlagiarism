@@ -41,7 +41,7 @@ public sealed class SubmissionAccessHandler
             return;
         }
 
-        var viewer = new SubmissionViewer(userId, IsStaff(context.User));
+        var viewer = new SubmissionViewer(userId, IsStaff(context.User), IsAdmin: context.User.IsInRole(ApplicationRoles.Admin));
 
         if (await _access.CanViewAsync(resource.SubmissionId, viewer))
         {

@@ -80,9 +80,19 @@ public class DocumentIndexer
 
         var fileIds = documents.Select(document => document.Id).ToList();
 
+        // The old index rows go and the new ones arrive together, or a failure in
+        // between would leave a document impossible to find.
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
         var existing = await _context.DocumentFingerprints
             .Where(fingerprint => fileIds.Contains(fingerprint.UploadedFileId))
             .ToDictionaryAsync(fingerprint => fingerprint.UploadedFileId, cancellationToken);
+
+        var replaced = existing.Values.Select(row => row.Id).ToList();
+
+        await _context.FingerprintHashes
+            .Where(row => replaced.Contains(row.DocumentFingerprintId))
+            .ExecuteDeleteAsync(cancellationToken);
 
         foreach (var document in documents)
         {
@@ -99,8 +109,16 @@ public class DocumentIndexer
             row.NGramSize = set.NGramSize;
             row.WindowSize = set.WindowSize;
             row.GeneratedAtUtc = DateTime.UtcNow;
+
+            // Stored signed: SQL Server has no unsigned 64-bit type, and the cast
+            // keeps every bit.
+            foreach (var hash in set.DistinctHashes)
+            {
+                row.Hashes.Add(new FingerprintHash { Hash = unchecked((long)hash) });
+            }
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 }

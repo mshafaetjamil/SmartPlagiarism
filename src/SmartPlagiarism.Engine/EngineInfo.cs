@@ -11,5 +11,5 @@ public static class EngineInfo
     /// Engine version recorded on each analysis. Bump this whenever a change
     /// alters the similarity scores the engine produces.
     /// </summary>
-    public const string Version = "0.1.0";
+    public const string Version = "0.2.0";
 }

@@ -4,6 +4,7 @@ using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.DTOs.Extraction;
 using SmartPlagiarism.Core.Entities;
 using SmartPlagiarism.Core.Enums;
+using SmartPlagiarism.Engine;
 using SmartPlagiarism.Engine.Extraction;
 using SmartPlagiarism.Infrastructure.Data;
 
@@ -67,6 +68,18 @@ public class ExtractionService : IExtractionService
         {
             // Shutdown, not a document problem - let the worker see it.
             throw;
+        }
+        catch (DocumentTooLargeException ex)
+        {
+            // Refused before any real work was done; the reason is written for
+            // the student, who can split or re-save the file.
+            _logger.LogWarning(
+                "Uploaded file {UploadedFileId} ({FileName}) is over an extraction limit: {Reason}",
+                file.Id,
+                file.OriginalFileName,
+                ex.Message);
+
+            return await FailAsync(file, ex.Message, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -134,10 +147,17 @@ public class ExtractionService : IExtractionService
             _context.ExtractedTexts.Add(extracted);
         }
 
+        // The time moves only when the text does: matches elsewhere store offsets
+        // into it, and are flagged as stale by comparing against this time.
+        if (extracted.ExtractedAtUtc == default || !string.Equals(extracted.FullText, fullText, StringComparison.Ordinal))
+        {
+            extracted.ExtractedAtUtc = DateTime.UtcNow;
+        }
+
         extracted.FullText = fullText;
         extracted.WordCount = wordCount;
         extracted.ExtractionMethod = method;
-        extracted.ExtractedAtUtc = DateTime.UtcNow;
+        extracted.EngineVersion = EngineInfo.Version;
         extracted.Warnings = [.. warnings];
 
         await _context.SaveChangesAsync(cancellationToken);

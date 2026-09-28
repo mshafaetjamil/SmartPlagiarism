@@ -33,6 +33,10 @@ public class SubmissionAccessService : ISubmissionAccessService
             // submission: another student's id is simply not found.
             submissions = submissions.Where(submission => submission.StudentProfile.UserId == viewer.UserId);
         }
+        else if (!viewer.IsAdmin)
+        {
+            submissions = submissions.VisibleToTeacher(_context, viewer.UserId);
+        }
 
         return await submissions.AnyAsync(cancellationToken);
     }

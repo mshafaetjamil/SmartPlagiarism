@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -34,7 +35,13 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException(
                 "Connection string 'DefaultConnection' was not found. Add it to appsettings.Development.json or user secrets.");
 
-        services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
+        // Explicit transactions here (re-indexing a document) are never retried
+        // within: a failed save is rolled back whole when the transaction is
+        // disposed, so the savepoints MARS disables are not needed, and warning
+        // about them on every analysis would only bury real problems in the log.
+        services.AddDbContext<AppDbContext>(options => options
+            .UseSqlServer(connectionString)
+            .ConfigureWarnings(warnings => warnings.Ignore(SqlServerEventId.SavepointsDisabledBecauseOfMARS)));
 
         services.AddIdentity<ApplicationUser, IdentityRole>(options =>
             {
@@ -83,7 +90,7 @@ public static class DependencyInjection
         services.AddScoped<IAuditLogReader, AuditLogReader>();
         services.AddScoped<IApiKeyService, ApiKeyService>();
 
-        AddAnalysis(services);
+        AddAnalysis(services, configuration);
 
         return services;
     }
@@ -115,7 +122,11 @@ public static class DependencyInjection
             return new FallbackOcrService([new TesseractOcrService(options), new TesseractCliOcrService(options)]);
         });
 
-        services.AddSingleton<IPdfPageRenderer, PdfiumPageRenderer>();
+        services.AddOptions<ExtractionLimits>().Bind(configuration.GetSection("Extraction"));
+        services.AddSingleton(provider => provider.GetRequiredService<IOptions<ExtractionLimits>>().Value);
+
+        services.AddSingleton<IPdfPageRenderer>(provider => new PdfiumPageRenderer(
+            maxPixels: provider.GetRequiredService<ExtractionLimits>().MaxRenderedPagePixels));
         services.AddSingleton<ITextExtractor, PdfTextExtractor>();
         services.AddSingleton<ITextExtractor, DocxTextExtractor>();
         services.AddSingleton<ITextExtractor, PptxTextExtractor>();
@@ -131,10 +142,13 @@ public static class DependencyInjection
     /// web requests that fill it and the worker that drains it; everything the
     /// worker runs is scoped and resolved per submission.
     /// </summary>
-    private static void AddAnalysis(IServiceCollection services)
+    private static void AddAnalysis(IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<AnalysisOptions>(configuration.GetSection("Analysis"));
         services.AddSingleton<IAnalysisQueue, ChannelAnalysisQueue>();
         services.AddScoped<DocumentIndexer>();
+        services.AddScoped<CommonTextFinder>();
+        services.AddScoped<EngineUpgrade>();
         services.AddScoped<ISubmissionAnalyzer, SubmissionAnalyzer>();
         services.AddScoped<IAnalysisService, AnalysisService>();
         services.AddHostedService<AnalysisWorker>();

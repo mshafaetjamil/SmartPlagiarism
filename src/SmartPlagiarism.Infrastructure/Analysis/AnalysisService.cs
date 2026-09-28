@@ -4,6 +4,7 @@ using SmartPlagiarism.Core.Auditing;
 using SmartPlagiarism.Core.DTOs.Analysis;
 using SmartPlagiarism.Core.Enums;
 using SmartPlagiarism.Infrastructure.Data;
+using SmartPlagiarism.Infrastructure.Services;
 
 namespace SmartPlagiarism.Infrastructure.Analysis;
 
@@ -23,10 +24,13 @@ public class AnalysisService : IAnalysisService
 
     public async Task<RequeueOutcome> RequeueAsync(
         int submissionId,
-        string requestedByUserId,
+        SubmissionViewer requestedBy,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(requestedBy);
+
         var submission = await _context.Submissions
+            .VisibleToStaff(_context, requestedBy)
             .FirstOrDefaultAsync(candidate => candidate.Id == submissionId, cancellationToken);
 
         if (submission is null)
@@ -50,7 +54,7 @@ public class AnalysisService : IAnalysisService
                 AuditActions.AnalysisRequeued,
                 AuditEntityTypes.Submission,
                 submissionId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                requestedByUserId),
+                requestedBy.UserId),
             cancellationToken);
 
         return RequeueOutcome.Requeued;
@@ -58,8 +62,11 @@ public class AnalysisService : IAnalysisService
 
     public async Task<IReadOnlyList<AnalysisStatusDto>> GetStatusesAsync(
         IReadOnlyCollection<int> submissionIds,
+        SubmissionViewer viewer,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(viewer);
+
         var ids = submissionIds.Distinct().Take(AnalysisStatusQuery.MaxSubmissionIds).ToList();
 
         if (ids.Count == 0)
@@ -69,6 +76,7 @@ public class AnalysisService : IAnalysisService
 
         return await _context.Submissions
             .AsNoTracking()
+            .VisibleToStaff(_context, viewer)
             .Where(submission => ids.Contains(submission.Id))
             .Select(submission => new AnalysisStatusDto(submission.Id, submission.AnalysisStatus))
             .ToListAsync(cancellationToken);

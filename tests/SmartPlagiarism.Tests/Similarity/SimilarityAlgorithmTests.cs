@@ -56,9 +56,15 @@ public class SimilarityAlgorithmTests
         score.Should().BeLessThan(0.95, $"{algorithm.Name} must not treat a partial copy as identical");
     }
 
+    public static TheoryData<ISimilarityAlgorithm> VocabularyAlgorithms() =>
+    [
+        new JaccardSimilarity(),
+        new TfIdfCosineSimilarity(UniformInverseDocumentFrequency.Instance),
+    ];
+
     [Theory]
-    [MemberData(nameof(AllAlgorithms))]
-    public void IsSymmetric(ISimilarityAlgorithm algorithm)
+    [MemberData(nameof(VocabularyAlgorithms))]
+    public void VocabularyMeasures_AreSymmetric(ISimilarityAlgorithm algorithm)
     {
         var first = Doc("shared opening words followed by material unique to the first document entirely");
         var second = Doc("shared opening words followed by different content belonging to the second one", 2);
@@ -100,18 +106,30 @@ public class SimilarityAlgorithmTests
     }
 
     [Fact]
-    public void NGramOverlap_ShortQuotationInsideALongerDocumentScoresHigh()
+    public void NGramContainment_MeasuresHowMuchOfTheAnalysedDocumentIsInTheSource()
     {
-        // The documented consequence of using the overlap coefficient: the question
-        // is how much of the smaller document appears in the larger.
         var quotation = Doc("winnowing selects the minimum hash in each window");
         var longer = Doc(
             "An introduction covering related work at some length. "
             + "winnowing selects the minimum hash in each window. "
             + "A conclusion covering evaluation and future work at similar length.",
             2);
+        var algorithm = new NGramOverlapSimilarity();
 
-        new NGramOverlapSimilarity().Compute(quotation, longer).Should().Be(1.0);
+        algorithm.Compute(longer, quotation).Should().Be(1.0, "all of the quotation is in the longer document");
+        algorithm.Compute(quotation, longer).Should().BeLessThan(0.4,
+            "quoting a short source does not make the longer document a copy of it");
+    }
+
+    [Fact]
+    public void Vocabulary_IgnoresFunctionWords()
+    {
+        // Nothing in common but "the", "of", "and", "is", "a", "in" and "এবং".
+        var first = Doc("The history of the river is a story of trade and ships in the delta \u098F\u09AC\u0982");
+        var second = Doc("The theory of the proof is a result of algebra and logic in the book \u098F\u09AC\u0982", 2);
+
+        new JaccardSimilarity().Compute(first, second).Should().Be(0);
+        new TfIdfCosineSimilarity(UniformInverseDocumentFrequency.Instance).Compute(first, second).Should().Be(0);
     }
 
     [Fact]

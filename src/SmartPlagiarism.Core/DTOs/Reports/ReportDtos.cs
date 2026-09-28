@@ -27,6 +27,7 @@ public sealed record SubmissionReportData(
     AnalysisStatus AnalysisStatus,
     string? AnalysisError,
     decimal? OverallSimilarityPercent,
+    decimal CommonTextPercent,
     DateTime? AnalyzedAtUtc,
     string? EngineVersion,
     IReadOnlyList<ReportFileLine> Files,

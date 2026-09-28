@@ -31,7 +31,7 @@ public class AnalysisController : Controller
     public async Task<IActionResult> Rerun(int id, string? returnUrl, CancellationToken cancellationToken)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        var outcome = await _analysisService.RequeueAsync(id, userId, cancellationToken);
+        var outcome = await _analysisService.RequeueAsync(id, SubmissionViewer.ForTeacher(userId), cancellationToken);
 
         TempData["StatusMessage"] = outcome switch
         {
@@ -50,7 +50,10 @@ public class AnalysisController : Controller
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Status([FromQuery] int[] ids, CancellationToken cancellationToken)
     {
-        var statuses = await _analysisService.GetStatusesAsync(ids, cancellationToken);
+        var statuses = await _analysisService.GetStatusesAsync(
+            ids,
+            SubmissionViewer.ForTeacher(User.FindFirstValue(ClaimTypes.NameIdentifier)!),
+            cancellationToken);
 
         return Json(AnalysisStatusResponse.From(statuses));
     }

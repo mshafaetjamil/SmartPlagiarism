@@ -9,8 +9,8 @@ using SmartPlagiarism.Web.Models.Review;
 namespace SmartPlagiarism.Web.Controllers;
 
 /// <summary>
-/// The teacher module: every submission, its analysis, the side-by-side match
-/// viewer, and the review verdict.
+/// The teacher module: the submissions of the teacher's department, their
+/// analysis, the side-by-side match viewer, and the review verdict.
 /// </summary>
 [Authorize(Policy = AuthorizationPolicies.TeacherOnly)]
 public class ReviewController : Controller
@@ -36,7 +36,7 @@ public class ReviewController : Controller
     {
         // An out-of-range similarity is reported by the view's validation messages
         // and clamped by the service, so the list still shows something sensible.
-        var results = await _reviewService.GetSubmissionsAsync(filter.ToQuery(), cancellationToken);
+        var results = await _reviewService.GetSubmissionsAsync(filter.ToQuery(), CurrentUserId, cancellationToken);
         var options = await _submissionService.GetFormOptionsAsync(cancellationToken);
 
         return View(new ReviewListViewModel(filter, results, options.Courses, options.Semesters));
@@ -45,7 +45,7 @@ public class ReviewController : Controller
     [HttpGet]
     public async Task<IActionResult> Submission(int id, CancellationToken cancellationToken)
     {
-        var submission = await _reviewService.GetSubmissionAsync(id, cancellationToken);
+        var submission = await _reviewService.GetSubmissionAsync(id, CurrentUserId, cancellationToken);
 
         return submission is null ? NotFound() : View(submission);
     }
@@ -53,7 +53,7 @@ public class ReviewController : Controller
     [HttpGet]
     public async Task<IActionResult> Compare(int id, CancellationToken cancellationToken)
     {
-        var comparison = await _reviewService.GetComparisonAsync(id, cancellationToken);
+        var comparison = await _reviewService.GetComparisonAsync(id, CurrentUserId, cancellationToken);
 
         return comparison is null ? NotFound() : View(comparison);
     }
@@ -64,7 +64,7 @@ public class ReviewController : Controller
     {
         var report = await _reportService.GetSubmissionReportAsync(
             id,
-            new SubmissionViewer(CurrentUserId, IsStaff: true),
+            SubmissionViewer.ForTeacher(CurrentUserId),
             cancellationToken);
 
         return report is null ? NotFound() : File(report.Content, report.ContentType, report.FileName);

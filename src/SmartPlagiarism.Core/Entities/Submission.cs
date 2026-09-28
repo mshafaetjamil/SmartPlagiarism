@@ -56,6 +56,23 @@ public class Submission
     /// </summary>
     public string? AnalysisError { get; private set; }
 
+    /// <summary>
+    /// How many times an analysis has started since the submission was queued.
+    /// Only a restart mid-analysis makes this more than one - and a file that
+    /// brings the server down, which no catch block survives, would otherwise do
+    /// so at every start.
+    /// </summary>
+    public int AnalysisAttempts { get; private set; }
+
+    /// <summary>Starts, interrupted each time, after which the analysis is given up.</summary>
+    public const int MaxAnalysisAttempts = 3;
+
+    /// <summary>
+    /// False once analysis has been interrupted <see cref="MaxAnalysisAttempts"/>
+    /// times: the submission must then fail rather than go back on the queue.
+    /// </summary>
+    public bool CanResumeAnalysis => AnalysisAttempts < MaxAnalysisAttempts;
+
     public ICollection<UploadedFile> Files { get; } = [];
 
     /// <summary>
@@ -83,6 +100,7 @@ public class Submission
         }
 
         AnalysisStatus = AnalysisStatus.Processing;
+        AnalysisAttempts++;
     }
 
     /// <summary>Records that analysis finished successfully.</summary>
@@ -127,12 +145,14 @@ public class Submission
 
         AnalysisStatus = AnalysisStatus.Queued;
         AnalysisError = null;
+        AnalysisAttempts = 0;
     }
 
     /// <summary>
     /// Returns a submission to the queue after the app stopped while analysing it.
     /// The queue lives in memory, so without this a restart would leave the
-    /// submission showing "Processing" forever.
+    /// submission showing "Processing" forever. Check <see cref="CanResumeAnalysis"/>
+    /// first: past the limit the submission is to be failed instead.
     /// </summary>
     public void ResumeInterruptedAnalysis()
     {

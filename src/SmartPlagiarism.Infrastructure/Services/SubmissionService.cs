@@ -162,7 +162,7 @@ public class SubmissionService : ISubmissionService
         int submissionId,
         string userId,
         CancellationToken cancellationToken = default) =>
-        GetDetailAsync(submissionId, new SubmissionViewer(userId, IsStaff: false), cancellationToken);
+        GetDetailAsync(submissionId, SubmissionViewer.ForStudent(userId), cancellationToken);
 
     public async Task<SubmissionDetailDto?> GetDetailAsync(
         int submissionId,
@@ -203,6 +203,7 @@ public class SubmissionService : ISubmissionService
                 submission.PlagiarismResult != null
                     ? new SubmissionResultDto(
                         submission.PlagiarismResult.OverallSimilarityPercent,
+                        submission.PlagiarismResult.CommonTextPercent,
                         submission.PlagiarismResult.AnalyzedAtUtc,
                         submission.PlagiarismResult.EngineVersion,
                         submission.PlagiarismResult.Matches.Count)

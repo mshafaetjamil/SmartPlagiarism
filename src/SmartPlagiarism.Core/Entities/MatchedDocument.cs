@@ -38,4 +38,11 @@ public class MatchedDocument
     /// written whole, and is never queried by its contents.
     /// </summary>
     public string MatchedFragmentsJson { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Each similarity measure's score for this match, as JSON keyed by measure -
+    /// the supporting evidence shown beside the headline percentage. Empty for
+    /// exact duplicates, and for matches stored before it was kept.
+    /// </summary>
+    public string ComponentScoresJson { get; set; } = string.Empty;
 }

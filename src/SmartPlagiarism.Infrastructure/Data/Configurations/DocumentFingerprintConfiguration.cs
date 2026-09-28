@@ -20,3 +20,21 @@ public class DocumentFingerprintConfiguration : IEntityTypeConfiguration<Documen
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+public class FingerprintHashConfiguration : IEntityTypeConfiguration<FingerprintHash>
+{
+    public void Configure(EntityTypeBuilder<FingerprintHash> builder)
+    {
+        // Clustered on the hash first: shortlisting looks rows up by hash and
+        // counts them per document, so every lookup is a seek.
+        builder.HasKey(row => new { row.Hash, row.DocumentFingerprintId });
+
+        // Replacing or deleting one document's set goes by the document.
+        builder.HasIndex(row => row.DocumentFingerprintId);
+
+        builder.HasOne(row => row.DocumentFingerprint)
+            .WithMany(fingerprint => fingerprint.Hashes)
+            .HasForeignKey(row => row.DocumentFingerprintId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}

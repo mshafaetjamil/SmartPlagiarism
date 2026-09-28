@@ -15,6 +15,13 @@ public class PlagiarismResult
     /// <summary>Overall similarity as a percentage, 0.00 to 100.00.</summary>
     public decimal OverallSimilarityPercent { get; set; }
 
+    /// <summary>
+    /// Share of the submission, 0-100, in passages common to most of its course -
+    /// a cover page, a declaration - which is set aside rather than counted in
+    /// <see cref="OverallSimilarityPercent"/>. Shown so nothing is hidden silently.
+    /// </summary>
+    public decimal CommonTextPercent { get; set; }
+
     public DateTime AnalyzedAtUtc { get; set; }
 
     /// <summary>

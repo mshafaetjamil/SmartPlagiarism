@@ -1,24 +1,32 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SmartPlagiarism.Core.Abstractions;
 
 namespace SmartPlagiarism.Infrastructure.Analysis;
 
 /// <summary>
-/// A background worker that drains a queue of record ids, one at a time, each
-/// in its own DI scope so every unit of work gets a fresh DbContext.
+/// A background worker that drains a queue of record ids, each in its own DI
+/// scope so every unit of work gets a fresh DbContext.
 ///
 /// Work waiting in the database from before a restart is done first, before
-/// anything queued since, so work happens in the order it arrived. Nothing that
-/// goes wrong with one item may stop the loop: an exception that escapes is
-/// logged and the loop moves on, since an unhandled one would stop the whole
-/// web host.
+/// anything queued since, so work starts in the order it arrived. With a
+/// <see cref="Concurrency"/> above one, that many items are worked on at once, so
+/// one slow item - a long scan going through OCR - does not hold up everything
+/// queued behind it. Nothing that goes wrong with one item may stop the loop:
+/// an exception that escapes is logged and the loop moves on, since an
+/// unhandled one would stop the whole web host.
 /// </summary>
 public abstract class QueueWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger _logger;
+
+    // Ids being worked on. The queue can hold one id twice - queued by a request
+    // while the startup scan also found it - and two readers must not take both.
+    private readonly ConcurrentDictionary<int, byte> _inFlight = new();
 
     protected QueueWorker(IServiceScopeFactory scopeFactory, ILogger logger)
     {
@@ -36,25 +44,50 @@ public abstract class QueueWorker : BackgroundService
 
     protected abstract Task ProcessAsync(IServiceProvider services, int id, CancellationToken stoppingToken);
 
+    /// <summary>Items worked on at once.</summary>
+    protected virtual int Concurrency => 1;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
         {
-            foreach (var id in await FindPendingSafelyAsync(stoppingToken))
-            {
-                await ProcessSafelyAsync(id, stoppingToken);
-            }
+            await Parallel.ForEachAsync(
+                await FindPendingSafelyAsync(stoppingToken),
+                new ParallelOptions { MaxDegreeOfParallelism = Concurrency, CancellationToken = stoppingToken },
+                async (id, cancellationToken) => await ProcessOnceAsync(id, cancellationToken));
 
             // Anything also queued during startup was handled above and is now
             // skipped, as its status is no longer "waiting".
-            await foreach (var id in DequeueAllAsync(stoppingToken))
-            {
-                await ProcessSafelyAsync(id, stoppingToken);
-            }
+            await Task.WhenAll(Enumerable.Range(0, Concurrency).Select(_ => DrainAsync(stoppingToken)));
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             // Normal shutdown. Whatever was in flight is resumed at the next start.
+        }
+    }
+
+    private async Task DrainAsync(CancellationToken stoppingToken)
+    {
+        await foreach (var id in DequeueAllAsync(stoppingToken))
+        {
+            await ProcessOnceAsync(id, stoppingToken);
+        }
+    }
+
+    private async Task ProcessOnceAsync(int id, CancellationToken stoppingToken)
+    {
+        if (!_inFlight.TryAdd(id, 0))
+        {
+            return;
+        }
+
+        try
+        {
+            await ProcessSafelyAsync(id, stoppingToken);
+        }
+        finally
+        {
+            _inFlight.TryRemove(id, out _);
         }
     }
 
@@ -102,10 +135,17 @@ public abstract class QueueWorker : BackgroundService
 }
 
 /// <summary>Drains the analysis queue: one submission at a time, oldest first.</summary>
-public sealed class AnalysisWorker(IAnalysisQueue queue, IServiceScopeFactory scopeFactory, ILogger<AnalysisWorker> logger)
+public sealed class AnalysisWorker(
+    IAnalysisQueue queue,
+    IServiceScopeFactory scopeFactory,
+    ILogger<AnalysisWorker> logger,
+    IOptions<AnalysisOptions>? options = null)
     : QueueWorker(scopeFactory, logger)
 {
     protected override string WorkName => "analysis";
+
+    protected override int Concurrency { get; } =
+        Math.Clamp(options?.Value.Workers ?? 1, 1, AnalysisOptions.MaxWorkers);
 
     protected override IAsyncEnumerable<int> DequeueAllAsync(CancellationToken stoppingToken) =>
         queue.DequeueAllAsync(stoppingToken);

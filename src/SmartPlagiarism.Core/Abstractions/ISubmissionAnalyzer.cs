@@ -18,9 +18,10 @@ public interface ISubmissionAnalyzer
     Task AnalyzeAsync(int submissionId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Returns submissions left Processing by a previous run to the queue, and
-    /// lists every queued submission, oldest first, for the worker to analyse at
-    /// startup before anything newer.
+    /// Returns submissions left Processing by a previous run to the queue, along
+    /// with those an older engine version scored, and lists every queued
+    /// submission, oldest first, for the worker to analyse at startup before
+    /// anything newer.
     /// </summary>
     Task<IReadOnlyList<int>> ResumePendingAsync(CancellationToken cancellationToken = default);
 }

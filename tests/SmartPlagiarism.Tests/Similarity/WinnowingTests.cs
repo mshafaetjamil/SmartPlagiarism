@@ -149,13 +149,4 @@ public class WinnowingTests
 
         act.Should().Throw<ArgumentException>();
     }
-
-    [Fact]
-    public void CountShared_CountsOnlyHashesPresentInBoth()
-    {
-        var packed = FingerprintSerializer.Pack([10UL, 20UL, 30UL, 40UL]);
-
-        FingerprintSerializer.CountShared(packed, new HashSet<ulong> { 20UL, 40UL, 99UL }).Should().Be(2);
-        FingerprintSerializer.CountShared(packed, new HashSet<ulong>()).Should().Be(0);
-    }
 }

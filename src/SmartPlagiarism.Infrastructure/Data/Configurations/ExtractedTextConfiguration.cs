@@ -16,6 +16,9 @@ public class ExtractedTextConfiguration : IEntityTypeConfiguration<ExtractedText
 
         // A primitive collection: stored as a JSON array in one nvarchar(max)
         // column, since warnings are always read and written with their row.
+        builder.Property(text => text.EngineVersion)
+            .HasMaxLength(32);
+
         builder.PrimitiveCollection(text => text.Warnings)
             .IsRequired();
 

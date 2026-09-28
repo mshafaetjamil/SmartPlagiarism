@@ -55,6 +55,24 @@ public class BijoyConverterTests
     }
 
     [Fact]
+    public void Join_FontlessSeparatorsBetweenWords_ConvertLikeTypedSpaces()
+    {
+        // The PDF reader puts back word and line breaks as runs with no font,
+        // so a Bijoy line reaches the converter one word at a time. The words
+        // here move a vowel sign and hold a conjunct, which must not care.
+        var text = BijoyConverter.Join(
+        [
+            new FontRun("evsjv\u2021`k", "SutonnyMJ"),
+            new FontRun(" ", null),
+            new FontRun("wk\u00B6v", "SutonnyMJ"),
+            new FontRun(Environment.NewLine, null),
+            new FontRun("Kg\u00A9", "SutonnyMJ"),
+        ]);
+
+        text.Should().Be(BijoyConverter.Convert($"evsjv\u2021`k wk\u00B6v{Environment.NewLine}Kg\u00A9"));
+    }
+
+    [Fact]
     public void Join_LeavesUnicodeInAnMjFontAlone()
     {
         // SutonnyOMJ is a Unicode font despite the name.

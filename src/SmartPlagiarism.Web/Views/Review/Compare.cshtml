@@ -19,6 +19,14 @@
         <span class="text-body-secondary small">@Model.PassageCount passage(s)</span>
     </div>
 
+    <p class="small text-body-secondary mb-3">
+        The percentage is how much of the submission lies in passages found in this source.
+        @if (Model.SupportingScores.Count > 0)
+        {
+            <span>Supporting measures, which also notice reworded copying: @SupportingScoreLabels.Describe(Model.SupportingScores).</span>
+        }
+    </p>
+
     @if (Model.SourceChangedSinceAnalysis)
     {
         <div class="alert alert-warning small" role="alert">

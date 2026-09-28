@@ -67,7 +67,8 @@ public sealed class AdminServicesTests : IAsyncLifetime
         await _harness.DisposeAsync();
     }
 
-    private async Task<int> DepartmentIdAsync() => await Context.Departments.Select(department => department.Id).FirstAsync();
+    private async Task<int> DepartmentIdAsync() =>
+        await Context.Departments.Where(department => department.Code == "CSE").Select(department => department.Id).SingleAsync();
 
     private async Task<CreateUserRequest> StudentAsync(string email = "new.student@uni.edu", string number = "2026-CSE-777") =>
         new(email, "New Student", StrongPassword, ApplicationRoles.Student, await DepartmentIdAsync(), number, 2026, null);
@@ -169,7 +170,8 @@ public sealed class AdminServicesTests : IAsyncLifetime
         var teachers = await Users.GetUsersAsync(new UserListQuery(Role: ApplicationRoles.Teacher));
         var searched = await Users.GetUsersAsync(new UserListQuery(Search: "Ayesha"));
 
-        teachers.Items.Should().ContainSingle().Which.Should().BeEquivalentTo(new
+        teachers.Items.Should().OnlyContain(user => user.Role == ApplicationRoles.Teacher);
+        teachers.Items.Should().ContainSingle(user => user.Email == "a.teacher@uni.edu").Which.Should().BeEquivalentTo(new
         {
             Email = "a.teacher@uni.edu",
             Role = ApplicationRoles.Teacher,

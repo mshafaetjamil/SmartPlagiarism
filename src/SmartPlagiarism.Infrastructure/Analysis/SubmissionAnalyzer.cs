@@ -20,20 +20,30 @@ public class SubmissionAnalyzer : ISubmissionAnalyzer
     internal const string UnexpectedFailureReason =
         "An unexpected error stopped the analysis. It has been logged; a teacher can re-run it.";
 
+    internal const string RepeatedlyInterruptedReason =
+        "The analysis stopped part-way every time it was tried, so it was given up. The file may be damaged "
+        + "or far larger inside than it looks; re-saving it (for example, exporting it again as PDF) usually helps.";
+
     private readonly AppDbContext _context;
     private readonly DocumentIndexer _indexer;
     private readonly SimilarityPipeline _pipeline;
+    private readonly CommonTextFinder _commonText;
+    private readonly EngineUpgrade _upgrade;
     private readonly ILogger<SubmissionAnalyzer> _logger;
 
     public SubmissionAnalyzer(
         AppDbContext context,
         DocumentIndexer indexer,
         SimilarityPipeline pipeline,
+        CommonTextFinder commonText,
+        EngineUpgrade upgrade,
         ILogger<SubmissionAnalyzer> logger)
     {
         _context = context;
         _indexer = indexer;
         _pipeline = pipeline;
+        _commonText = commonText;
+        _upgrade = upgrade;
         _logger = logger;
     }
 
@@ -86,13 +96,31 @@ public class SubmissionAnalyzer : ISubmissionAnalyzer
 
     public async Task<IReadOnlyList<int>> ResumePendingAsync(CancellationToken cancellationToken = default)
     {
+        // Results an older engine produced go back on the queue with the rest.
+        await _upgrade.RunAsync(cancellationToken);
+        _context.ChangeTracker.Clear();
+
         var interrupted = await _context.Submissions
             .Where(submission => submission.AnalysisStatus == AnalysisStatus.Processing)
             .ToListAsync(cancellationToken);
 
         foreach (var submission in interrupted)
         {
-            submission.ResumeInterruptedAnalysis();
+            if (submission.CanResumeAnalysis)
+            {
+                submission.ResumeInterruptedAnalysis();
+                continue;
+            }
+
+            // Interrupted at every attempt: most likely the file itself brings
+            // the server down, and queuing it again would do so at every start
+            // while everything behind it waits.
+            await RemoveResultAsync(submission.Id, cancellationToken);
+            submission.MarkFailed(RepeatedlyInterruptedReason);
+            _logger.LogError(
+                "Submission {SubmissionId} was interrupted {Attempts} times mid-analysis and has been failed.",
+                submission.Id,
+                submission.AnalysisAttempts);
         }
 
         if (interrupted.Count > 0)
@@ -100,7 +128,7 @@ public class SubmissionAnalyzer : ISubmissionAnalyzer
             await _context.SaveChangesAsync(cancellationToken);
 
             _logger.LogWarning(
-                "Returned {Count} submission(s) interrupted mid-analysis to the queue.",
+                "Found {Count} submission(s) interrupted mid-analysis.",
                 interrupted.Count);
         }
 
@@ -128,8 +156,8 @@ public class SubmissionAnalyzer : ISubmissionAnalyzer
         }
 
         // Fingerprints are stored before comparison so later submissions can be
-        // shortlisted against this one; its own files are excluded from its own
-        // comparison below.
+        // shortlisted against this one; its own files, and anything submitted
+        // after it, are excluded from its own comparison below.
         var indexed = await _indexer.IndexAsync(fileIds, cancellationToken);
         var documents = indexed.Where(file => file.Document is not null).Select(file => file.Document!).ToList();
 
@@ -138,11 +166,41 @@ public class SubmissionAnalyzer : ISubmissionAnalyzer
             return DescribeUnreadable(indexed);
         }
 
+        var owner = await _context.Submissions
+            .Where(submission => submission.Id == submissionId)
+            .Select(submission => new { submission.StudentProfileId, submission.CourseId, submission.SubmittedAtUtc })
+            .FirstAsync(cancellationToken);
+        var studentProfileId = owner.StudentProfileId;
+
+        // A submission is compared only with work that existed before it - the
+        // archive and earlier submissions. Otherwise re-running an original after
+        // someone copied it would score the original as the copy. Later work that
+        // matches it is shown on its page as matched-by instead.
+        var laterWork = await _context.UploadedFiles
+            .AsNoTracking()
+            .Where(file => file.SubmissionId != submissionId
+                && (file.Submission!.SubmittedAtUtc > owner.SubmittedAtUtc
+                    || (file.Submission.SubmittedAtUtc == owner.SubmittedAtUtc && file.SubmissionId > submissionId)))
+            .Select(file => file.Id)
+            .ToListAsync(cancellationToken);
+
+        var excluded = fileIds.Concat(laterWork).ToList();
+
+        // The student's earlier submissions are listed but not counted: a
+        // resubmission is not copying, though reuse across courses is worth seeing.
+        var ownEarlierWork = await _context.UploadedFiles
+            .AsNoTracking()
+            .Where(file => file.SubmissionId != submissionId && file.Submission!.StudentProfileId == studentProfileId)
+            .Select(file => file.Id)
+            .ToHashSetAsync(cancellationToken);
+
+        var commonText = await _commonText.FindAsync(owner.CourseId, studentProfileId, documents, cancellationToken);
+
         var reports = new List<(AnalyzedDocument Document, SimilarityReport Report)>(documents.Count);
 
         foreach (var document in documents)
         {
-            var report = await _pipeline.AnalyzeAsync(document, fileIds, cancellationToken);
+            var report = await _pipeline.AnalyzeAsync(document, excluded, ownEarlierWork, commonText, cancellationToken);
             reports.Add((document, report));
         }
 
@@ -190,7 +248,8 @@ public class SubmissionAnalyzer : ISubmissionAnalyzer
             result.Matches.Clear();
         }
 
-        result.OverallSimilarityPercent = WeightedOverall(reports);
+        result.OverallSimilarityPercent = WeightedByLength(reports, report => report.OverallSimilarityPercent);
+        result.CommonTextPercent = WeightedByLength(reports, report => report.CommonTextPercent);
         result.AnalyzedAtUtc = DateTime.UtcNow;
         result.EngineVersion = EngineInfo.Version;
 
@@ -204,6 +263,7 @@ public class SubmissionAnalyzer : ISubmissionAnalyzer
                     MatchedUploadedFileId = match.DocumentId,
                     SimilarityPercent = match.SimilarityPercent,
                     MatchedFragmentsJson = MatchedFragmentSerializer.Serialize(match.Fragments),
+                    ComponentScoresJson = ComponentScoreSerializer.Serialize(match.ComponentScores),
                 });
             }
         }
@@ -216,7 +276,9 @@ public class SubmissionAnalyzer : ISubmissionAnalyzer
     /// fully copied one-page appendix should not count as much as the 30-page
     /// report beside it.
     /// </summary>
-    private static decimal WeightedOverall(IReadOnlyList<(AnalyzedDocument Document, SimilarityReport Report)> reports)
+    private static decimal WeightedByLength(
+        IReadOnlyList<(AnalyzedDocument Document, SimilarityReport Report)> reports,
+        Func<SimilarityReport, decimal> percent)
     {
         var totalWords = reports.Sum(entry => entry.Document.WordCount);
 
@@ -225,7 +287,7 @@ public class SubmissionAnalyzer : ISubmissionAnalyzer
             return 0m;
         }
 
-        var weighted = reports.Sum(entry => entry.Report.OverallSimilarityPercent * entry.Document.WordCount);
+        var weighted = reports.Sum(entry => percent(entry.Report) * entry.Document.WordCount);
 
         return Math.Round(weighted / totalWords, 2, MidpointRounding.AwayFromZero);
     }

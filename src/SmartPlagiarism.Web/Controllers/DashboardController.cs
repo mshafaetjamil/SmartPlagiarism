@@ -57,7 +57,9 @@ public class DashboardController : Controller
     [Authorize(Policy = AuthorizationPolicies.TeacherOnly)]
     public async Task<IActionResult> Teacher(CancellationToken cancellationToken)
     {
-        return View(await _dashboardService.GetTeacherDashboardAsync(cancellationToken));
+        return View(await _dashboardService.GetTeacherDashboardAsync(
+            User.FindFirstValue(ClaimTypes.NameIdentifier)!,
+            cancellationToken));
     }
 
     [HttpGet]

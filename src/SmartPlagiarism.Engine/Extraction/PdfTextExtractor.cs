@@ -1,3 +1,4 @@
+using System.Globalization;
 using SmartPlagiarism.Engine.Ocr;
 using SmartPlagiarism.Engine.Text;
 using UglyToad.PdfPig;
@@ -7,9 +8,9 @@ namespace SmartPlagiarism.Engine.Extraction;
 
 /// <summary>
 /// Extracts text from PDFs with PdfPig, turning to OCR of the drawn page where
-/// the embedded text cannot be trusted.
+/// the embedded text cannot be trusted or does not hold the page's words.
 ///
-/// Each page takes one of three routes:
+/// Each page takes one of four routes:
 /// <list type="bullet">
 ///   <item><description>
 ///     <b>Ordinary text layer</b> - used as is.
@@ -25,10 +26,20 @@ namespace SmartPlagiarism.Engine.Extraction;
 ///     be drawn, its embedded images are read instead, which is what a scanned
 ///     page is.
 ///   </description></item>
+///   <item><description>
+///     <b>Mostly a picture</b> - a heading over a pasted screenshot or scan has a
+///     text layer, but the page's words are in the picture. Such a page is drawn
+///     and read by OCR, and the result kept if it found the picture's words.
+///   </description></item>
 /// </list>
 /// No route throws: when OCR is unavailable the best text there is gets used,
 /// and a warning records exactly what was lost so a teacher is never shown a
 /// low score without knowing why.
+///
+/// Once every page is read, lines repeated at the top or bottom of most pages -
+/// running headers, footers and page numbers - are removed, as Word keeps them
+/// out of a DOCX's body. Left in, they match between every report made from the
+/// same template.
 /// </summary>
 public sealed class PdfTextExtractor : ITextExtractor
 {
@@ -39,16 +50,34 @@ public sealed class PdfTextExtractor : ITextExtractor
     /// </summary>
     public const int MinimumNativeCharacters = 20;
 
+    /// <summary>
+    /// A page with a text layer shorter than this, most of it covered by images,
+    /// is treated as a picture with a caption: a heading, not a page of prose.
+    /// </summary>
+    public const int MaximumCaptionCharacters = 300;
+
+    /// <summary>Share of the page images must cover for it to count as mostly a picture.</summary>
+    public const double MinimumPictureCoverage = 0.5;
+
+    /// <summary>
+    /// Words OCR must find beyond the text layer's for its reading of a
+    /// picture page to replace the text layer. Fewer is a logo or a chart's
+    /// axis labels, which are not worth trading exact text for.
+    /// </summary>
+    public const int MinimumPictureWords = 20;
+
     private readonly IOcrService _ocr;
     private readonly IPdfPageRenderer _renderer;
+    private readonly ExtractionLimits _limits;
 
-    public PdfTextExtractor(IOcrService ocr, IPdfPageRenderer renderer)
+    public PdfTextExtractor(IOcrService ocr, IPdfPageRenderer renderer, ExtractionLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(ocr);
         ArgumentNullException.ThrowIfNull(renderer);
 
         _ocr = ocr;
         _renderer = renderer;
+        _limits = limits ?? new ExtractionLimits();
     }
 
     public IReadOnlyCollection<string> SupportedExtensions { get; } = [".pdf"];
@@ -59,27 +88,24 @@ public sealed class PdfTextExtractor : ITextExtractor
     {
         var bytes = await StreamHelpers.ReadAllBytesAsync(document, cancellationToken);
         var builder = new TextExtractionResultBuilder();
+        var budget = new OcrBudget(_limits.OcrTimeBudget);
 
         using var pdf = PdfDocument.Open(bytes);
 
-        foreach (var page in pdf.GetPages())
+        var pageCount = Math.Min(pdf.NumberOfPages, _limits.MaxPdfPages);
+        var pages = new List<PageText>(pageCount);
+
+        for (var number = 1; number <= pageCount; number++)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            pages.Add(await ReadPageAsync(builder, bytes, pdf.GetPage(number), budget, cancellationToken));
+        }
 
-            var nativeText = NativeText(page);
+        var texts = PdfRunningLines.Remove(pages.Select(page => page.Text).ToList());
 
-            if (CountVisibleCharacters(nativeText) < MinimumNativeCharacters)
-            {
-                await AddScannedPageAsync(builder, bytes, page, nativeText, cancellationToken);
-            }
-            else if (BengaliText.ContainsBengali(nativeText))
-            {
-                await AddBengaliPageAsync(builder, bytes, page.Number, nativeText, cancellationToken);
-            }
-            else
-            {
-                builder.AddSegment(page.Number, SegmentKind.Page, nativeText, TextExtractionMethod.Native);
-            }
+        for (var index = 0; index < pages.Count; index++)
+        {
+            builder.AddSegment(pages[index].Number, SegmentKind.Page, texts[index], pages[index].Method);
         }
 
         if (pdf.NumberOfPages == 0)
@@ -87,23 +113,63 @@ public sealed class PdfTextExtractor : ITextExtractor
             builder.AddWarning("The PDF contains no pages.");
         }
 
+        if (pdf.NumberOfPages > pageCount)
+        {
+            builder.AddWarning(string.Create(
+                CultureInfo.InvariantCulture,
+                $"The PDF has {pdf.NumberOfPages:N0} pages; only the first {pageCount:N0} were read."));
+        }
+
+        if (budget.Warning() is { } unread)
+        {
+            builder.AddWarning(unread);
+        }
+
         return builder.Build();
     }
 
-    private async Task AddBengaliPageAsync(
+    private async Task<PageText> ReadPageAsync(
+        TextExtractionResultBuilder builder,
+        byte[] pdf,
+        Page page,
+        OcrBudget budget,
+        CancellationToken cancellationToken)
+    {
+        var nativeText = NativeText(page);
+        var visibleCharacters = CountVisibleCharacters(nativeText);
+
+        if (visibleCharacters < MinimumNativeCharacters)
+        {
+            return await ReadScannedPageAsync(builder, pdf, page, nativeText, budget, cancellationToken);
+        }
+
+        if (visibleCharacters < MaximumCaptionCharacters
+            && ImageCoverage(page) >= MinimumPictureCoverage
+            && await ReadPicturePageAsync(builder, pdf, page.Number, nativeText, budget, cancellationToken) is { } picture)
+        {
+            return picture;
+        }
+
+        return BengaliText.ContainsBengali(nativeText)
+            ? await ReadBengaliPageAsync(builder, pdf, page.Number, nativeText, budget, cancellationToken)
+            : new PageText(page.Number, nativeText, TextExtractionMethod.Native);
+    }
+
+    private async Task<PageText> ReadBengaliPageAsync(
         TextExtractionResultBuilder builder,
         byte[] pdf,
         int pageNumber,
         string nativeText,
+        OcrBudget budget,
         CancellationToken cancellationToken)
     {
         var repaired = BengaliText.RepairDrawingOrder(nativeText);
         var nativeQuality = BengaliText.Assess(repaired);
+        var native = new PageText(pageNumber, repaired, TextExtractionMethod.Native);
 
         if (!nativeQuality.IsDamaged)
         {
-            builder.AddSegment(pageNumber, SegmentKind.Page, repaired, TextExtractionMethod.Native);
-            return;
+            return native;
         }
 
         var damage = $"Page {pageNumber}: the PDF's embedded Bangla text is damaged "
@@ -115,17 +181,21 @@ public sealed class PdfTextExtractor : ITextExtractor
             builder.AddWarning(
                 $"{damage} and OCR is unavailable ({_ocr.UnavailableReason}). "
                 + "Similarity for this page will be understated; a DOCX or PPTX copy gives exact results.");
-            builder.AddSegment(pageNumber, SegmentKind.Page, repaired, TextExtractionMethod.Native);
-            return;
+            return native;
         }
 
-        var (recognized, error) = await RecognizeRenderedPageAsync(pdf, pageNumber, cancellationToken);
+        if (!budget.HasTimeLeft)
+        {
+            budget.SkipPage(pageNumber);
+            return native;
+        }
+
+        var (recognized, error) = await budget.MeasureAsync(() => RecognizeRenderedPageAsync(pdf, pageNumber, cancellationToken));
 
         if (recognized is null)
         {
             builder.AddWarning($"{damage} and OCR failed: {error}");
-            builder.AddSegment(pageNumber, SegmentKind.Page, repaired, TextExtractionMethod.Native);
-            return;
+            return native;
         }
 
         var ocrQuality = BengaliText.Assess(recognized);
@@ -138,36 +208,44 @@ public sealed class PdfTextExtractor : ITextExtractor
             && ocrQuality.SuspectRatio <= nativeQuality.SuspectRatio)
         {
             builder.AddWarning($"{damage}, so the page was read by OCR instead.");
-            builder.AddSegment(pageNumber, SegmentKind.Page, recognized, TextExtractionMethod.Ocr);
-            return;
+            return new PageText(pageNumber, recognized, TextExtractionMethod.Ocr);
         }
 
         builder.AddWarning($"{damage}, and OCR did no better; the embedded text was kept.");
-        builder.AddSegment(pageNumber, SegmentKind.Page, repaired, TextExtractionMethod.Native);
+        return native;
     }
 
-    private async Task AddScannedPageAsync(
+    private async Task<PageText> ReadScannedPageAsync(
         TextExtractionResultBuilder builder,
         byte[] pdf,
         Page page,
         string nativeText,
+        OcrBudget budget,
         CancellationToken cancellationToken)
     {
+        var native = new PageText(page.Number, nativeText, TextExtractionMethod.Native);
+
         if (!_ocr.IsAvailable)
         {
             builder.AddWarning(
                 $"Page {page.Number} has little or no embedded text and OCR is unavailable: {_ocr.UnavailableReason}");
-            builder.AddSegment(page.Number, SegmentKind.Page, nativeText, TextExtractionMethod.Native);
-            return;
+            return native;
         }
 
-        var (recognized, renderError) = await RecognizeRenderedPageAsync(pdf, page.Number, cancellationToken);
+        if (!budget.HasTimeLeft)
+        {
+            budget.SkipPage(page.Number);
+            return native;
+        }
+
+        var (recognized, renderError) = await budget.MeasureAsync(
+            () => RecognizeRenderedPageAsync(pdf, page.Number, cancellationToken));
 
         if (recognized is null)
         {
             // Drawing the page failed; the embedded images are the next best
             // thing, since a scanned page is one full-page image.
-            var (fromImages, failures) = await RecognizePageImagesAsync(page, cancellationToken);
+            var (fromImages, failures) = await budget.MeasureAsync(() => RecognizePageImagesAsync(page, cancellationToken));
 
             builder.AddWarning($"Page {page.Number}: {renderError}");
 
@@ -182,11 +260,51 @@ public sealed class PdfTextExtractor : ITextExtractor
         if (recognized is null)
         {
             builder.AddWarning($"Page {page.Number} produced no text, either natively or by OCR.");
-            builder.AddSegment(page.Number, SegmentKind.Page, nativeText, TextExtractionMethod.Native);
-            return;
+            return native;
         }
 
-        builder.AddSegment(page.Number, SegmentKind.Page, recognized, TextExtractionMethod.Ocr);
+        return new PageText(page.Number, recognized, TextExtractionMethod.Ocr);
+    }
+
+    /// <returns>
+    /// The page as OCR read it when that found the picture's words, or null to
+    /// read the text layer as usual.
+    /// </returns>
+    private async Task<PageText?> ReadPicturePageAsync(
+        TextExtractionResultBuilder builder,
+        byte[] pdf,
+        int pageNumber,
+        string nativeText,
+        OcrBudget budget,
+        CancellationToken cancellationToken)
+    {
+        if (!_ocr.IsAvailable)
+        {
+            builder.AddWarning(
+                $"Page {pageNumber} is mostly a picture and OCR is unavailable ({_ocr.UnavailableReason}), "
+                + "so any text inside the picture is not read.");
+            return null;
+        }
+
+        if (!budget.HasTimeLeft)
+        {
+            budget.SkipPage(pageNumber);
+            return null;
+        }
+
+        var (recognized, error) = await budget.MeasureAsync(() => RecognizeRenderedPageAsync(pdf, pageNumber, cancellationToken));
+
+        if (recognized is null)
+        {
+            builder.AddWarning($"Page {pageNumber} is mostly a picture, and reading it by OCR failed: {error}");
+            return null;
+        }
+
+        // The drawn page includes the text layer's own words, so OCR has found
+        // the picture's text only if it read clearly more than those.
+        return WordTokenizer.Tokenize(recognized).Count >= WordTokenizer.Tokenize(nativeText).Count + MinimumPictureWords
+            ? new PageText(pageNumber, recognized, TextExtractionMethod.Ocr)
+            : null;
     }
 
     /// <returns>The recognised text, or null with the reason it could not be had.</returns>
@@ -256,19 +374,40 @@ public sealed class PdfTextExtractor : ITextExtractor
     }
 
     /// <summary>
-    /// The page's embedded text, with anything set in a Bijoy font converted to
-    /// Unicode. A PDF made from a SutonnyMJ document stores the Latin codes the
-    /// font draws as Bangla, so the text layer reads "Avwg" for আমি; each letter
-    /// records its font, which is what identifies those stretches.
+    /// The share of the page its images cover, capped at 1. Overlapping images
+    /// are counted twice, which only matters for pages that are pictures anyway.
     /// </summary>
-    private static string NativeText(Page page)
+    private static double ImageCoverage(Page page)
     {
-        var letters = page.Letters;
+        var pageArea = page.Width * page.Height;
 
-        return letters.Any(letter => BijoyConverter.IsBijoyFont(letter.FontName))
-            ? BijoyConverter.Join(letters.Select(letter => new FontRun(letter.Value, letter.FontName)))
-            : page.Text ?? string.Empty;
+        if (pageArea <= 0)
+        {
+            return 0;
+        }
+
+        try
+        {
+            var covered = page.GetImages().Sum(image => Math.Abs(image.BoundingBox.Width * image.BoundingBox.Height));
+            return Math.Min(1, covered / pageArea);
+        }
+        catch (Exception)
+        {
+            // Broad on purpose: an image PdfPig cannot parse only means the page
+            // is not known to be a picture, and must not stop it being read.
+            return 0;
+        }
     }
+
+    /// <summary>
+    /// The page's embedded text, with the word and line breaks the PDF does not
+    /// store put back (see <see cref="PdfPageLayout"/>), and anything set in a
+    /// Bijoy font converted to Unicode. A PDF made from a SutonnyMJ document
+    /// stores the Latin codes the font draws as Bangla, so the text layer reads
+    /// "Avwg" for আমি; each letter records its font, which is what identifies
+    /// those stretches.
+    /// </summary>
+    private static string NativeText(Page page) => BijoyConverter.Join(PdfPageLayout.Runs(page));
 
     /// <summary>
     /// Counts characters that actually convey text, so a page holding nothing but
@@ -288,4 +427,6 @@ public sealed class PdfTextExtractor : ITextExtractor
 
         return count;
     }
+
+    private sealed record PageText(int Number, string Text, TextExtractionMethod Method);
 }

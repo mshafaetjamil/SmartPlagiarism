@@ -448,6 +448,10 @@ namespace SmartPlagiarism.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("EngineVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
                     b.Property<DateTime>("ExtractedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -476,6 +480,21 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                     b.ToTable("ExtractedTexts");
                 });
 
+            modelBuilder.Entity("SmartPlagiarism.Core.Entities.FingerprintHash", b =>
+                {
+                    b.Property<long>("Hash")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("DocumentFingerprintId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Hash", "DocumentFingerprintId");
+
+                    b.HasIndex("DocumentFingerprintId");
+
+                    b.ToTable("FingerprintHashes");
+                });
+
             modelBuilder.Entity("SmartPlagiarism.Core.Entities.MatchedDocument", b =>
                 {
                     b.Property<int>("Id")
@@ -483,6 +502,11 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ComponentScoresJson")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("MatchedFragmentsJson")
                         .IsRequired()
@@ -522,6 +546,10 @@ namespace SmartPlagiarism.Infrastructure.Migrations
 
                     b.Property<DateTime>("AnalyzedAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal>("CommonTextPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<string>("EngineVersion")
                         .IsRequired()
@@ -618,6 +646,9 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AnalysisAttempts")
+                        .HasColumnType("int");
 
                     b.Property<string>("AnalysisError")
                         .HasMaxLength(1000)
@@ -930,6 +961,17 @@ namespace SmartPlagiarism.Infrastructure.Migrations
                     b.Navigation("UploadedFile");
                 });
 
+            modelBuilder.Entity("SmartPlagiarism.Core.Entities.FingerprintHash", b =>
+                {
+                    b.HasOne("SmartPlagiarism.Core.Entities.DocumentFingerprint", "DocumentFingerprint")
+                        .WithMany("Hashes")
+                        .HasForeignKey("DocumentFingerprintId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DocumentFingerprint");
+                });
+
             modelBuilder.Entity("SmartPlagiarism.Core.Entities.MatchedDocument", b =>
                 {
                     b.HasOne("SmartPlagiarism.Core.Entities.UploadedFile", "MatchedUploadedFile")
@@ -1065,6 +1107,11 @@ namespace SmartPlagiarism.Infrastructure.Migrations
             modelBuilder.Entity("SmartPlagiarism.Core.Entities.Department", b =>
                 {
                     b.Navigation("Courses");
+                });
+
+            modelBuilder.Entity("SmartPlagiarism.Core.Entities.DocumentFingerprint", b =>
+                {
+                    b.Navigation("Hashes");
                 });
 
             modelBuilder.Entity("SmartPlagiarism.Core.Entities.PlagiarismResult", b =>

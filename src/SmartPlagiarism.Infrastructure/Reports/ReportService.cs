@@ -99,7 +99,14 @@ public class ReportService : IReportService
         var result = await _context.PlagiarismResults
             .AsNoTracking()
             .Where(candidate => candidate.SubmissionId == submissionId)
-            .Select(candidate => new { candidate.Id, candidate.OverallSimilarityPercent, candidate.AnalyzedAtUtc, candidate.EngineVersion })
+            .Select(candidate => new
+            {
+                candidate.Id,
+                candidate.OverallSimilarityPercent,
+                candidate.CommonTextPercent,
+                candidate.AnalyzedAtUtc,
+                candidate.EngineVersion,
+            })
             .FirstOrDefaultAsync(cancellationToken);
 
         List<MatchRow> matches = result is null
@@ -128,7 +135,7 @@ public class ReportService : IReportService
         matches = [.. matches.OrderByDescending(match => match.SimilarityPercent)];
 
         string Describe(MatchRow match) => forStaff
-            ? match.Source.StaffLabel
+            ? match.Source.StaffLabel + (match.Source.IsOwnEarlierWorkOf(submission.StudentProfileId) ? MatchSource.NotCountedNote : string.Empty)
             : match.Source.StudentLabel(submission.StudentProfileId);
 
         return new SubmissionReportData(
@@ -147,6 +154,7 @@ public class ReportService : IReportService
             submission.AnalysisStatus,
             submission.AnalysisError,
             result?.OverallSimilarityPercent,
+            result?.CommonTextPercent ?? 0m,
             result?.AnalyzedAtUtc,
             result?.EngineVersion,
             files.Select(file => new ReportFileLine(
@@ -161,7 +169,7 @@ public class ReportService : IReportService
                     match.SimilarityPercent,
                     MatchedFragmentSerializer.Deserialize(match.FragmentsJson).Count))
                 .ToList(),
-            await BuildExcerptsAsync(matches, forStaff, Describe, cancellationToken),
+            await BuildExcerptsAsync(matches, forStaff, Describe, result?.AnalyzedAtUtc, cancellationToken),
             submission.Status,
             submission.TeacherComment,
             DateTime.UtcNow);
@@ -175,6 +183,7 @@ public class ReportService : IReportService
         IReadOnlyList<MatchRow> matches,
         bool forStaff,
         Func<MatchRow, string> describe,
+        DateTime? analyzedAtUtc,
         CancellationToken cancellationToken)
     {
         var top = matches
@@ -199,18 +208,32 @@ public class ReportService : IReportService
         var texts = await _context.ExtractedTexts
             .AsNoTracking()
             .Where(text => fileIds.Contains(text.UploadedFileId))
-            .ToDictionaryAsync(text => text.UploadedFileId, text => text.FullText, cancellationToken);
+            .ToDictionaryAsync(text => text.UploadedFileId, text => (text.FullText, text.ExtractedAtUtc), cancellationToken);
 
         return top
             .Select(entry => new ReportExcerpt(
                 describe(entry.Match),
                 entry.Match.SimilarityPercent,
-                Quote(texts.GetValueOrDefault(entry.Match.OwnFileId), entry.Fragment.TargetStart, entry.Fragment.TargetEnd),
+                QuoteIfCurrent(entry.Match.OwnFileId, entry.Fragment.TargetStart, entry.Fragment.TargetEnd),
                 forStaff
-                    ? Quote(texts.GetValueOrDefault(entry.Match.SourceFileId), entry.Fragment.SourceStart, entry.Fragment.SourceEnd)
+                    ? QuoteIfCurrent(entry.Match.SourceFileId, entry.Fragment.SourceStart, entry.Fragment.SourceEnd)
                     : null))
             .ToList();
+
+        // The stored offsets index the text as it was when the analysis ran. A
+        // text read again since may have shifted, and quoting it would put the
+        // wrong words in front of a disciplinary panel.
+        string QuoteIfCurrent(int fileId, int start, int end) =>
+            !texts.TryGetValue(fileId, out var text)
+                ? string.Empty
+                : analyzedAtUtc is { } analysed && text.ExtractedAtUtc > analysed
+                    ? StaleQuoteNote
+                    : Quote(text.FullText, start, end);
     }
+
+    internal const string StaleQuoteNote =
+        "[This document was read again after the analysis ran, so this passage cannot be quoted reliably. "
+        + "Re-run the analysis to refresh it.]";
 
     /// <summary>
     /// The passage's text with runs of whitespace - PDF line padding, say -

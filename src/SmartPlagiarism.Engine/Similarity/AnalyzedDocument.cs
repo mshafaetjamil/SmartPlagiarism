@@ -26,7 +26,7 @@ public sealed class AnalyzedDocument
         Tokens = WordTokenizer.Tokenize(Text);
 
         _termFrequencies = new Lazy<IReadOnlyDictionary<string, int>>(BuildTermFrequencies);
-        _distinctTerms = new Lazy<HashSet<string>>(() => [.. Tokens.Select(token => token.Value)]);
+        _distinctTerms = new Lazy<HashSet<string>>(() => [.. ContentTokens().Select(token => token.Value)]);
     }
 
     /// <summary>
@@ -47,10 +47,13 @@ public sealed class AnalyzedDocument
 
     public bool IsEmpty => Tokens.Count == 0;
 
-    /// <summary>How often each distinct word occurs. Used by TF-IDF.</summary>
+    /// <summary>
+    /// How often each distinct word occurs, leaving out <see cref="StopWords"/>.
+    /// Used by TF-IDF.
+    /// </summary>
     public IReadOnlyDictionary<string, int> TermFrequencies => _termFrequencies.Value;
 
-    /// <summary>The document's vocabulary. Used by Jaccard.</summary>
+    /// <summary>The document's vocabulary, leaving out <see cref="StopWords"/>. Used by Jaccard.</summary>
     public IReadOnlySet<string> DistinctTerms => _distinctTerms.Value;
 
     public IReadOnlyList<NGram> NGrams(int size) =>
@@ -77,11 +80,52 @@ public sealed class AnalyzedDocument
     public (int Start, int End) SpanOf(int firstTokenIndex, int lastTokenIndex) =>
         (Tokens[firstTokenIndex].Start, Tokens[lastTokenIndex].End);
 
+    /// <summary>
+    /// The tokens lying wholly inside a character span of <see cref="Text"/> - the
+    /// inverse of <see cref="SpanOf"/> - as a first index and a count.
+    /// </summary>
+    public (int First, int Count) TokensWithin(int start, int end)
+    {
+        var first = FirstTokenStartingAtOrAfter(start);
+        var last = first;
+
+        while (last < Tokens.Count && Tokens[last].End <= end)
+        {
+            last++;
+        }
+
+        return (first, last - first);
+    }
+
+    private int FirstTokenStartingAtOrAfter(int offset)
+    {
+        var low = 0;
+        var high = Tokens.Count;
+
+        while (low < high)
+        {
+            var middle = (low + high) / 2;
+
+            if (Tokens[middle].Start < offset)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                high = middle;
+            }
+        }
+
+        return low;
+    }
+
+    private IEnumerable<Token> ContentTokens() => Tokens.Where(token => !StopWords.Contains(token.Value));
+
     private IReadOnlyDictionary<string, int> BuildTermFrequencies()
     {
         var frequencies = new Dictionary<string, int>();
 
-        foreach (var token in Tokens)
+        foreach (var token in ContentTokens())
         {
             frequencies[token.Value] = frequencies.GetValueOrDefault(token.Value) + 1;
         }

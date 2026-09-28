@@ -57,6 +57,13 @@
                             <span class="display-6 fw-semibold @StatusBadge.SimilarityTextClass(Model.Result.OverallSimilarityPercent)">@Model.Result.OverallSimilarityPercent.ToString("0.00")%</span>
                             <span class="text-body-secondary">overall similarity</span>
                         </div>
+                        @if (Model.Result.CommonTextPercent > 0)
+                        {
+                            <p class="small text-body-secondary mb-1">
+                                A further @Model.Result.CommonTextPercent.ToString("0.00")% is text most of the course shares - a cover page,
+                                a declaration - and is not counted.
+                            </p>
+                        }
                         <p class="text-body-secondary small mb-0">
                             @Model.Result.MatchCount matched source(s).
                             Analysed @Model.Result.AnalyzedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC

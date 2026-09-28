@@ -4,8 +4,8 @@ namespace SmartPlagiarism.Core.Entities;
 /// Winnowing fingerprints for one uploaded file, used to shortlist candidate
 /// documents before expensive pairwise comparison.
 ///
-/// The fingerprint set is stored as a single packed varbinary blob rather than as
-/// one row per fingerprint. See <see cref="Fingerprints"/> for the rationale.
+/// The set is kept twice: packed in one row with the document, and as rows of an
+/// inverted index (<see cref="FingerprintHash"/>) for finding documents by hash.
 /// </summary>
 public class DocumentFingerprint
 {
@@ -19,15 +19,14 @@ public class DocumentFingerprint
     /// The fingerprint set packed as consecutive little-endian UInt64 values,
     /// sorted ascending so two sets can be intersected with a merge scan.
     ///
-    /// Stored as a blob because the engine consumes the whole set at once: a child
-    /// table would cost thousands of rows per document (millions across a corpus)
-    /// and still be read in full for every comparison. A blob is one row and one
-    /// sequential read. The trade-off is that shortlisting happens in memory rather
-    /// than as a SQL GROUP BY over shared hashes; if the corpus ever outgrows that,
-    /// an inverted-index table can be added alongside this column without changing
-    /// the engine, which only ever sees an in-memory set.
+    /// The document's own copy of its set, in one row. Shortlisting does not read
+    /// it: that goes through <see cref="Hashes"/>, the inverted index, so that it
+    /// costs a seek per shared hash rather than a read of every document.
     /// </summary>
     public byte[] Fingerprints { get; set; } = [];
+
+    /// <summary>The same fingerprints as rows of the inverted index.</summary>
+    public ICollection<FingerprintHash> Hashes { get; } = [];
 
     /// <summary>Number of fingerprints packed into <see cref="Fingerprints"/>.</summary>
     public int FingerprintCount { get; set; }

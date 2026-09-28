@@ -157,6 +157,14 @@ public sealed class QuestPdfReportGenerator : IReportGenerator
                 column.Item().Text("How much of the submission's text was also found in other submissions.")
                     .FontSize(9);
 
+                if (data.CommonTextPercent > 0)
+                {
+                    column.Item().Text(
+                            $"A further {data.CommonTextPercent:0.00}% is text most of the course shares - a cover page, "
+                            + "a declaration - and is not counted.")
+                        .FontSize(8);
+                }
+
                 if (data.AnalyzedAtUtc is { } analysedAt)
                 {
                     column.Item().Text($"Analysed {Format(analysedAt)} by engine {data.EngineVersion}.")
@@ -224,6 +232,11 @@ public sealed class QuestPdfReportGenerator : IReportGenerator
                 return;
             }
 
+            column.Item().PaddingBottom(4).Text(
+                    "Share: how much of this submission lies in passages found in that source. "
+                    + "The overall figure counts each word once, however many sources it was found in.")
+                .FontSize(8).FontColor(Colors.Grey.Darken1);
+
             column.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
@@ -239,7 +252,7 @@ public sealed class QuestPdfReportGenerator : IReportGenerator
                     header.Cell().Element(HeaderCell).Text("Matched source");
                     header.Cell().Element(HeaderCell).Text("In file");
                     header.Cell().Element(HeaderCell).AlignRight().Text("Passages");
-                    header.Cell().Element(HeaderCell).AlignRight().Text("Similarity");
+                    header.Cell().Element(HeaderCell).AlignRight().Text("Share");
                 });
 
                 foreach (var match in data.Matches)

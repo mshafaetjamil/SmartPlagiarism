@@ -5,23 +5,14 @@ using SmartPlagiarism.Infrastructure.Data;
 namespace SmartPlagiarism.Infrastructure.Similarity;
 
 /// <summary>
-/// Fingerprint shortlisting over the DocumentFingerprint table.
+/// Fingerprint shortlisting over the inverted index (<c>FingerprintHashes</c>).
 ///
-/// <para><b>Why this reads every row.</b> Phase 1 stores each document's
-/// fingerprints as one packed varbinary blob rather than a row per fingerprint.
-/// That keeps the corpus to one row per document instead of thousands, but it
-/// means SQL cannot intersect fingerprint sets itself - the intersection happens
-/// here, in memory.</para>
-///
-/// <para>The cost is one sequential scan of the blob column per analysis, which at
-/// this project's scale is far cheaper than maintaining a table of millions of
-/// fingerprint rows. Only the id and the blob are read, never the document text.
-/// If the corpus ever outgrows this, an inverted-index table can be added
-/// alongside the blob and swapped in behind <see cref="IFingerprintIndex"/>
-/// without the Engine noticing.</para>
-///
-/// <para>Rows generated with different winnowing parameters are filtered out in
-/// SQL: their hashes cannot match, so reading them would be wasted IO.</para>
+/// The earlier version read every document's packed fingerprint blob and
+/// intersected the sets in memory, so every analysis read the whole corpus. Now
+/// the database looks up the query's hashes - a seek each, on the index keyed by
+/// hash - and counts them per document, returning only the documents worth
+/// comparing. Rows made with other winnowing parameters are filtered out in the
+/// same query: their hashes cannot match.
 /// </summary>
 public class EfFingerprintIndex : IFingerprintIndex
 {
@@ -43,37 +34,29 @@ public class EfFingerprintIndex : IFingerprintIndex
             return [];
         }
 
-        var excluded = query.ExcludeDocumentIds as ISet<int> ?? query.ExcludeDocumentIds.ToHashSet();
+        // Stored signed: SQL Server has no unsigned 64-bit type, and the cast
+        // keeps every bit.
+        var hashes = query.Fingerprints.Select(hash => unchecked((long)hash)).ToList();
+        var excluded = query.ExcludeDocumentIds.ToList();
+        var limit = query.MaxCandidates > 0 ? query.MaxCandidates : int.MaxValue;
 
-        var stored = _context.DocumentFingerprints
+        // One seek per hash in the inverted index, counted per document - the
+        // database does the shortlisting, however large the corpus. Most-shared
+        // first, so the cap keeps the most promising candidates.
+        var shortlist = await _context.FingerprintHashes
             .AsNoTracking()
-            .Where(fingerprint => fingerprint.NGramSize == query.NGramSize
-                && fingerprint.WindowSize == query.WindowSize
-                && !excluded.Contains(fingerprint.UploadedFileId))
-            .Select(fingerprint => new
-            {
-                fingerprint.UploadedFileId,
-                fingerprint.Fingerprints,
-            })
-            .AsAsyncEnumerable();
+            .Where(row => hashes.Contains(row.Hash)
+                && row.DocumentFingerprint.NGramSize == query.NGramSize
+                && row.DocumentFingerprint.WindowSize == query.WindowSize
+                && !excluded.Contains(row.DocumentFingerprint.UploadedFileId))
+            .GroupBy(row => row.DocumentFingerprint.UploadedFileId)
+            .Select(group => new { UploadedFileId = group.Key, Shared = group.Count() })
+            .Where(candidate => candidate.Shared >= query.MinimumSharedFingerprints)
+            .OrderByDescending(candidate => candidate.Shared)
+            .ThenBy(candidate => candidate.UploadedFileId)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
 
-        var candidates = new List<FingerprintCandidate>();
-
-        await foreach (var row in stored.WithCancellation(cancellationToken))
-        {
-            var shared = FingerprintSerializer.CountShared(row.Fingerprints, query.Fingerprints);
-
-            if (shared >= query.MinimumSharedFingerprints)
-            {
-                candidates.Add(new FingerprintCandidate(row.UploadedFileId, shared));
-            }
-        }
-
-        // Most-shared first, so the cap keeps the most promising candidates.
-        candidates.Sort((left, right) => right.SharedFingerprintCount.CompareTo(left.SharedFingerprintCount));
-
-        return query.MaxCandidates > 0 && candidates.Count > query.MaxCandidates
-            ? candidates[..query.MaxCandidates]
-            : candidates;
+        return [.. shortlist.Select(candidate => new FingerprintCandidate(candidate.UploadedFileId, candidate.Shared))];
     }
 }

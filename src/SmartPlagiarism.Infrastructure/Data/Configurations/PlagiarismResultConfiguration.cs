@@ -15,6 +15,9 @@ public class PlagiarismResultConfiguration : IEntityTypeConfiguration<Plagiarism
         builder.Property(result => result.OverallSimilarityPercent)
             .HasPrecision(5, 2);
 
+        builder.Property(result => result.CommonTextPercent)
+            .HasPrecision(5, 2);
+
         builder.Property(result => result.EngineVersion)
             .IsRequired()
             .HasMaxLength(32);

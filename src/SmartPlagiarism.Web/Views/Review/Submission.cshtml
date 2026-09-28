@@ -71,6 +71,13 @@
                             </span>
                             <span class="text-body-secondary">overall similarity</span>
                         </div>
+                        @if (result.CommonTextPercent > 0)
+                        {
+                            <p class="small text-body-secondary mb-1">
+                                A further @result.CommonTextPercent.ToString("0.00")% is text most of the course shares - a cover page,
+                                a declaration - and is not counted.
+                            </p>
+                        }
                         <p class="text-body-secondary small mb-0">
                             Analysed @result.AnalyzedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC by engine @result.EngineVersion.
                         </p>
@@ -110,7 +117,7 @@
                                 <th scope="col">Written by</th>
                                 <th scope="col">Files</th>
                                 <th scope="col" class="text-end">Passages</th>
-                                <th scope="col" class="text-end">Similarity</th>
+                                <th scope="col" class="text-end" title="How much of this submission lies in passages found in that source">Share of submission</th>
                                 <th scope="col"><span class="visually-hidden">Actions</span></th>
                             </tr>
                         </thead>
@@ -119,16 +126,26 @@
                             {
                                 <tr>
                                     <td>
-                                        @if (match.MatchedSubmissionId is { } matchedId)
+                                        @if (match.ArchiveYear is not null)
+                                        {
+                                            <span class="badge text-bg-dark me-1">Archive @match.ArchiveYear</span>@match.SourceTitle
+                                        }
+                                        else if (match.CanOpenSource && match.MatchedSubmissionId is { } matchedId)
                                         {
                                             <a asp-action="Submission" asp-route-id="@matchedId">@match.SourceTitle</a>
                                         }
                                         else
                                         {
-                                            <span class="badge text-bg-dark me-1">Archive @match.ArchiveYear</span>@match.SourceTitle
+                                            <span title="A submission in another department">@match.SourceTitle</span>
                                         }
                                     </td>
-                                    <td>@match.SourceOwner</td>
+                                    <td>
+                                        @match.SourceOwner
+                                        @if (match.IsOwnEarlierWork)
+                                        {
+                                            <span class="badge text-bg-secondary ms-1" title="The student's own earlier submission: listed, but not counted in the overall figure">Own earlier work &middot; not counted</span>
+                                        }
+                                    </td>
                                     <td class="small">
                                         @match.OwnFileName
                                         <span class="text-body-secondary">&harr;</span>
@@ -145,6 +162,61 @@
                     </table>
                 </div>
             }
+        </div>
+    }
+
+    @if (Model.MatchedBy.Count > 0)
+    {
+        <div class="card border-0 shadow-sm mt-3">
+            <div class="card-header bg-transparent">
+                <h2 class="h6 mb-0">Later submissions that contain text from this one</h2>
+                <p class="small text-body-secondary mb-0">
+                    Each submission is compared only with work that existed before it, so these are not in the score
+                    above. The share is how much of the later submission was found here.
+                </p>
+            </div>
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Later submission</th>
+                            <th scope="col">Written by</th>
+                            <th scope="col">Submitted</th>
+                            <th scope="col" class="text-end">Share of it</th>
+                            <th scope="col"><span class="visually-hidden">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var later in Model.MatchedBy)
+                        {
+                            <tr>
+                                <td>
+                                    @if (later.CanOpen)
+                                    {
+                                        <a asp-action="Submission" asp-route-id="@later.SubmissionId">@later.SubmissionTitle</a>
+                                    }
+                                    else
+                                    {
+                                        <span title="A submission in another department">@later.SubmissionTitle</span>
+                                    }
+                                </td>
+                                <td>
+                                    @later.StudentName
+                                    @if (later.IsSameStudent)
+                                    {
+                                        <span class="badge text-bg-secondary ms-1">Same student</span>
+                                    }
+                                </td>
+                                <td class="small">@later.SubmittedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                                <td class="text-end">@StatusBadge.Similarity(later.SimilarityPercent)</td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-primary" asp-action="Compare" asp-route-id="@later.MatchId">Compare</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     }
 

@@ -57,8 +57,8 @@ public class ReviewServiceTests
         await using var context = harness.NewContext();
         var service = NewService(context);
 
-        var suspicious = await service.GetSubmissionsAsync(new ReviewSubmissionQuery(MinSimilarityPercent: 20));
-        var clean = await service.GetSubmissionsAsync(new ReviewSubmissionQuery(MaxSimilarityPercent: 5));
+        var suspicious = await service.GetSubmissionsAsync(new ReviewSubmissionQuery(MinSimilarityPercent: 20), harness.TeacherUserId);
+        var clean = await service.GetSubmissionsAsync(new ReviewSubmissionQuery(MaxSimilarityPercent: 5), harness.TeacherUserId);
 
         suspicious.Items.Select(item => item.Id).Should().Equal(copyId);
         clean.Items.Select(item => item.Id).Should().Equal(originalId);
@@ -73,7 +73,7 @@ public class ReviewServiceTests
         await using var context = harness.NewContext();
 
         var result = await NewService(context).GetSubmissionsAsync(
-            new ReviewSubmissionQuery(MinSimilarityPercent: 100, MaxSimilarityPercent: 20));
+            new ReviewSubmissionQuery(MinSimilarityPercent: 100, MaxSimilarityPercent: 20), harness.TeacherUserId);
 
         result.Items.Select(item => item.Id).Should().Equal(copyId);
     }
@@ -87,7 +87,7 @@ public class ReviewServiceTests
         await using var context = harness.NewContext();
 
         var result = await NewService(context).GetSubmissionsAsync(
-            new ReviewSubmissionQuery(Sort: ReviewSortField.Similarity, Descending: true));
+            new ReviewSubmissionQuery(Sort: ReviewSortField.Similarity, Descending: true), harness.TeacherUserId);
 
         result.Items.Select(item => item.Id).Should().Equal(copyId, originalId);
         result.Items[0].MatchCount.Should().Be(1);
@@ -102,18 +102,18 @@ public class ReviewServiceTests
 
         await using var context = harness.NewContext();
         var service = NewService(context);
-        await service.RejectAsync(copyId, "Copied from another student.", "teacher");
+        await service.RejectAsync(copyId, "Copied from another student.", harness.TeacherUserId);
 
-        (await service.GetSubmissionsAsync(new ReviewSubmissionQuery(ReviewStatus: SubmissionStatus.Rejected)))
+        (await service.GetSubmissionsAsync(new ReviewSubmissionQuery(ReviewStatus: SubmissionStatus.Rejected), harness.TeacherUserId))
             .Items.Select(item => item.Id).Should().Equal(copyId);
 
-        (await service.GetSubmissionsAsync(new ReviewSubmissionQuery(AnalysisStatus: AnalysisStatus.Queued)))
+        (await service.GetSubmissionsAsync(new ReviewSubmissionQuery(AnalysisStatus: AnalysisStatus.Queued), harness.TeacherUserId))
             .Items.Select(item => item.Id).Should().Equal(queuedId);
 
-        (await service.GetSubmissionsAsync(new ReviewSubmissionQuery(CourseId: 999)))
+        (await service.GetSubmissionsAsync(new ReviewSubmissionQuery(CourseId: 999), harness.TeacherUserId))
             .Items.Should().BeEmpty();
 
-        (await service.GetSubmissionsAsync(new ReviewSubmissionQuery(ReviewStatus: SubmissionStatus.PendingReview)))
+        (await service.GetSubmissionsAsync(new ReviewSubmissionQuery(ReviewStatus: SubmissionStatus.PendingReview), harness.TeacherUserId))
             .Items.Select(item => item.Id).Should().BeEquivalentTo([originalId, queuedId]);
     }
 
@@ -125,7 +125,7 @@ public class ReviewServiceTests
 
         await using var context = harness.NewContext();
 
-        var result = await NewService(context).GetSubmissionsAsync(new ReviewSubmissionQuery(Page: 50));
+        var result = await NewService(context).GetSubmissionsAsync(new ReviewSubmissionQuery(Page: 50), harness.TeacherUserId);
 
         result.Page.Should().Be(1);
         result.Items.Should().ContainSingle();
@@ -142,7 +142,7 @@ public class ReviewServiceTests
 
         await using var context = harness.NewContext();
 
-        var detail = await NewService(context).GetSubmissionAsync(copyId);
+        var detail = await NewService(context).GetSubmissionAsync(copyId, harness.TeacherUserId);
 
         detail!.Result!.OverallSimilarityPercent.Should().BePositive();
 
@@ -156,6 +156,39 @@ public class ReviewServiceTests
         var file = detail.Files.Should().ContainSingle().Subject;
         file.ExtractionMethod.Should().Be(ExtractionMethod.Native);
         file.WordCount.Should().BePositive();
+    }
+
+    [Fact]
+    public async Task Detail_OfTheEarlierSubmission_ListsTheLaterOneThatCopiedIt()
+    {
+        // The original is analysed first and finds nothing; only the copy's
+        // analysis finds the shared paragraph.
+        await using var harness = await AnalysisTestHarness.CreateAsync();
+        var (originalId, copyId) = await OriginalAndCopyAsync(harness);
+
+        await using var context = harness.NewContext();
+        var original = await NewService(context).GetSubmissionAsync(originalId, harness.TeacherUserId);
+
+        original!.Result!.Matches.Should().BeEmpty();
+        original.MatchedBy.Should().ContainSingle().Which.SubmissionId.Should().Be(copyId);
+        original.MatchedBy[0].IsSameStudent.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TeacherOfAnotherDepartment_FindsNothing()
+    {
+        await using var harness = await AnalysisTestHarness.CreateAsync();
+        var (originalId, copyId) = await OriginalAndCopyAsync(harness);
+
+        await using var context = harness.NewContext();
+        var service = NewService(context);
+        var outsider = harness.OutsideTeacherUserId;
+        var matchId = (await service.GetSubmissionAsync(copyId, harness.TeacherUserId))!.Result!.Matches.Single().MatchId;
+
+        (await service.GetSubmissionsAsync(new ReviewSubmissionQuery(), outsider)).TotalCount.Should().Be(0);
+        (await service.GetSubmissionAsync(copyId, outsider)).Should().BeNull();
+        (await service.GetComparisonAsync(matchId, outsider)).Should().BeNull();
+        (await service.ApproveAsync(originalId, null, outsider)).Should().Be(ReviewDecisionOutcome.NotFound);
     }
 
     [Fact]
@@ -174,7 +207,7 @@ public class ReviewServiceTests
         }
 
         await using var check = harness.NewContext();
-        var detail = await NewService(check).GetSubmissionAsync(id);
+        var detail = await NewService(check).GetSubmissionAsync(id, harness.TeacherUserId);
 
         detail!.AnalysisStatus.Should().Be(AnalysisStatus.Failed);
         detail.AnalysisError.Should().Contain("No readable text");
@@ -187,7 +220,7 @@ public class ReviewServiceTests
         await using var harness = await AnalysisTestHarness.CreateAsync();
         await using var context = harness.NewContext();
 
-        (await NewService(context).GetSubmissionAsync(4242)).Should().BeNull();
+        (await NewService(context).GetSubmissionAsync(4242, harness.TeacherUserId)).Should().BeNull();
     }
 
     // ---------------- comparison ----------------
@@ -200,9 +233,9 @@ public class ReviewServiceTests
 
         await using var context = harness.NewContext();
         var service = NewService(context);
-        var matchId = (await service.GetSubmissionAsync(copyId))!.Result!.Matches.Single().MatchId;
+        var matchId = (await service.GetSubmissionAsync(copyId, harness.TeacherUserId))!.Result!.Matches.Single().MatchId;
 
-        var comparison = await service.GetComparisonAsync(matchId);
+        var comparison = await service.GetComparisonAsync(matchId, harness.TeacherUserId);
 
         comparison!.PassageCount.Should().Be(1);
         comparison.IdenticalFiles.Should().BeFalse();
@@ -240,9 +273,9 @@ public class ReviewServiceTests
 
         await using var check = harness.NewContext();
         var service = NewService(check);
-        var matchId = (await service.GetSubmissionAsync(copyId))!.Result!.Matches.Single().MatchId;
+        var matchId = (await service.GetSubmissionAsync(copyId, harness.TeacherUserId))!.Result!.Matches.Single().MatchId;
 
-        (await service.GetComparisonAsync(matchId))!.SourceChangedSinceAnalysis.Should().BeTrue();
+        (await service.GetComparisonAsync(matchId, harness.TeacherUserId))!.SourceChangedSinceAnalysis.Should().BeTrue();
     }
 
     [Fact]
@@ -251,7 +284,7 @@ public class ReviewServiceTests
         await using var harness = await AnalysisTestHarness.CreateAsync();
         await using var context = harness.NewContext();
 
-        (await NewService(context).GetComparisonAsync(4242)).Should().BeNull();
+        (await NewService(context).GetComparisonAsync(4242, harness.TeacherUserId)).Should().BeNull();
     }
 
     // ---------------- verdict ----------------
@@ -264,7 +297,7 @@ public class ReviewServiceTests
 
         await using var context = harness.NewContext();
 
-        var outcome = await NewService(context).ApproveAsync(id, "  Well done.  ", "teacher-id");
+        var outcome = await NewService(context).ApproveAsync(id, "  Well done.  ", harness.TeacherUserId);
 
         outcome.Should().Be(ReviewDecisionOutcome.Recorded);
 
@@ -277,7 +310,7 @@ public class ReviewServiceTests
             Action = AuditActions.SubmissionApproved,
             EntityType = AuditEntityTypes.Submission,
             EntityId = id.ToString(),
-            UserId = "teacher-id",
+            UserId = harness.TeacherUserId,
             Details = "Well done.",
         });
     }
@@ -290,7 +323,7 @@ public class ReviewServiceTests
 
         await using var context = harness.NewContext();
 
-        (await NewService(context).RejectAsync(id, "   ", "teacher-id")).Should().Be(ReviewDecisionOutcome.CommentRequired);
+        (await NewService(context).RejectAsync(id, "   ", harness.TeacherUserId)).Should().Be(ReviewDecisionOutcome.CommentRequired);
 
         (await context.Submissions.SingleAsync()).Status.Should().Be(SubmissionStatus.PendingReview);
         (await context.AuditLogs.CountAsync()).Should().Be(0);
@@ -304,7 +337,7 @@ public class ReviewServiceTests
 
         await using var context = harness.NewContext();
 
-        (await NewService(context).RejectAsync(id, "Copied from another student.", "teacher-id"))
+        (await NewService(context).RejectAsync(id, "Copied from another student.", harness.TeacherUserId))
             .Should().Be(ReviewDecisionOutcome.Recorded);
 
         (await context.Submissions.SingleAsync()).TeacherComment.Should().Be("Copied from another student.");
@@ -320,9 +353,9 @@ public class ReviewServiceTests
         await using var context = harness.NewContext();
         var service = NewService(context);
 
-        await service.ApproveAsync(id, null, "teacher-id");
+        await service.ApproveAsync(id, null, harness.TeacherUserId);
 
-        (await service.RejectAsync(id, "Changed my mind.", "teacher-id")).Should().Be(ReviewDecisionOutcome.AlreadyReviewed);
+        (await service.RejectAsync(id, "Changed my mind.", harness.TeacherUserId)).Should().Be(ReviewDecisionOutcome.AlreadyReviewed);
         (await context.Submissions.SingleAsync()).Status.Should().Be(SubmissionStatus.Approved);
     }
 
@@ -334,7 +367,7 @@ public class ReviewServiceTests
 
         await using var context = harness.NewContext();
 
-        (await NewService(context).ApproveAsync(id, new string('x', 1001), "teacher-id"))
+        (await NewService(context).ApproveAsync(id, new string('x', 1001), harness.TeacherUserId))
             .Should().Be(ReviewDecisionOutcome.CommentTooLong);
     }
 
@@ -344,6 +377,6 @@ public class ReviewServiceTests
         await using var harness = await AnalysisTestHarness.CreateAsync();
         await using var context = harness.NewContext();
 
-        (await NewService(context).ApproveAsync(4242, null, "teacher-id")).Should().Be(ReviewDecisionOutcome.NotFound);
+        (await NewService(context).ApproveAsync(4242, null, harness.TeacherUserId)).Should().Be(ReviewDecisionOutcome.NotFound);
     }
 }

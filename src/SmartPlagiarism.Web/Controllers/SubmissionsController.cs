@@ -119,7 +119,7 @@ public class SubmissionsController : Controller
         // or quotes the other students matched.
         var report = await _reportService.GetSubmissionReportAsync(
             id,
-            new SubmissionViewer(CurrentUserId, IsStaff: false),
+            SubmissionViewer.ForStudent(CurrentUserId),
             cancellationToken);
 
         return report is null ? NotFound() : File(report.Content, report.ContentType, report.FileName);

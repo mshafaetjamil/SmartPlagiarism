@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.Auditing;
 using SmartPlagiarism.Core.DTOs.Analysis;
 using SmartPlagiarism.Core.DTOs.Submissions;
@@ -56,7 +57,7 @@ public class AnalysisServiceTests
         await using var context = harness.NewContext();
         var service = NewService(context, harness);
 
-        var outcome = await service.RequeueAsync(id, "teacher-user-id");
+        var outcome = await service.RequeueAsync(id, SubmissionViewer.ForTeacher(harness.TeacherUserId));
 
         outcome.Should().Be(RequeueOutcome.Requeued);
         harness.Queue.Enqueued.Should().Equal(id);
@@ -66,7 +67,7 @@ public class AnalysisServiceTests
             Action = AuditActions.AnalysisRequeued,
             EntityType = AuditEntityTypes.Submission,
             EntityId = id.ToString(),
-            UserId = "teacher-user-id",
+            UserId = harness.TeacherUserId,
         });
     }
 
@@ -78,7 +79,7 @@ public class AnalysisServiceTests
         var id = await harness.SubmitAsync(("report.docx", Docx()));
 
         await using var context = harness.NewContext();
-        var outcome = await NewService(context, harness).RequeueAsync(id, "teacher-user-id");
+        var outcome = await NewService(context, harness).RequeueAsync(id, SubmissionViewer.ForTeacher(harness.TeacherUserId));
 
         outcome.Should().Be(RequeueOutcome.AlreadyPending);
         harness.Queue.Enqueued.Should().BeEmpty();
@@ -90,7 +91,7 @@ public class AnalysisServiceTests
         await using var harness = await AnalysisTestHarness.CreateAsync();
         await using var context = harness.NewContext();
 
-        (await NewService(context, harness).RequeueAsync(12345, "teacher-user-id")).Should().Be(RequeueOutcome.NotFound);
+        (await NewService(context, harness).RequeueAsync(12345, SubmissionViewer.ForTeacher(harness.TeacherUserId))).Should().Be(RequeueOutcome.NotFound);
     }
 
     [Fact]
@@ -118,7 +119,7 @@ public class AnalysisServiceTests
         await using var context = harness.NewContext();
         var ids = Enumerable.Range(1, AnalysisStatusQuery.MaxSubmissionIds * 3).ToList();
 
-        var statuses = await NewService(context, harness).GetStatusesAsync(ids);
+        var statuses = await NewService(context, harness).GetStatusesAsync(ids, SubmissionViewer.ForTeacher(harness.TeacherUserId));
 
         statuses.Should().ContainSingle();
     }

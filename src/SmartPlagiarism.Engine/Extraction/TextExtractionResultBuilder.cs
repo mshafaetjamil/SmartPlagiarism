@@ -53,14 +53,16 @@ public sealed class TextExtractionResultBuilder
     /// </summary>
     private TextExtractionMethod DetermineOverallMethod()
     {
-        var usedOcr = _segments.Any(segment => segment.Method == TextExtractionMethod.Ocr);
+        // A segment is Mixed when its own text came both ways - a page of typed
+        // text around a picture read by OCR.
+        var usedOcr = _segments.Any(segment => segment.Method is TextExtractionMethod.Ocr or TextExtractionMethod.Mixed);
 
         if (!usedOcr)
         {
             return TextExtractionMethod.Native;
         }
 
-        var usedNative = _segments.Any(segment => segment.Method == TextExtractionMethod.Native);
+        var usedNative = _segments.Any(segment => segment.Method is TextExtractionMethod.Native or TextExtractionMethod.Mixed);
 
         return usedNative ? TextExtractionMethod.Mixed : TextExtractionMethod.Ocr;
     }

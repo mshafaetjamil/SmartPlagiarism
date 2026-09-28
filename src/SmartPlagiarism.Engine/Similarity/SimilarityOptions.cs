@@ -29,9 +29,10 @@ public sealed class SimilarityOptions
     /// </summary>
     public int MaxCandidates { get; set; } = 25;
 
-    /// <summary>Matches scoring below this are left out of the report as noise.</summary>
-    public decimal MinimumReportedSimilarityPercent { get; set; } = 5m;
-
+    /// <summary>
+    /// Words a passage must span to count. The noise filter for every score: a
+    /// source is reported only if it shares at least one passage this long.
+    /// </summary>
     public int MinimumFragmentWords { get; set; } = FragmentLocator.DefaultMinimumFragmentWords;
 
     public int MaximumFragmentGap { get; set; } = FragmentLocator.DefaultMaximumGap;

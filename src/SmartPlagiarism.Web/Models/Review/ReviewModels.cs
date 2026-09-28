@@ -93,3 +93,25 @@ public sealed class ReviewDecisionForm
     [StringLength(Submission.MaxTeacherCommentLength)]
     public string? Comment { get; set; }
 }
+
+/// <summary>
+/// Names the similarity measures stored with a match, in the order they are
+/// shown. The keys are the algorithm names the engine records.
+/// </summary>
+public static class SupportingScoreLabels
+{
+    private static readonly (string Key, string Label)[] s_measures =
+    [
+        ("combined", "weighted blend"),
+        ("ngram-3", "three-word sequences"),
+        ("tfidf-cosine", "vocabulary (TF-IDF cosine)"),
+        ("jaccard", "shared vocabulary (Jaccard)"),
+    ];
+
+    public static string Describe(IReadOnlyDictionary<string, double> scores) =>
+        string.Join(
+            " \u00B7 ",
+            s_measures
+                .Where(measure => scores.ContainsKey(measure.Key))
+                .Select(measure => string.Create(CultureInfo.InvariantCulture, $"{measure.Label} {scores[measure.Key] * 100:0}%")));
+}

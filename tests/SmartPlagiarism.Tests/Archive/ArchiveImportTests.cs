@@ -53,6 +53,32 @@ public class ArchiveImportTests
 
     private static byte[] Text(string text) => Encoding.UTF8.GetBytes(text);
 
+    // ---------------- engine upgrades ----------------
+
+    [Fact]
+    public async Task ArchiveTextAnOlderEngineRead_IsReadAgainAtStartup()
+    {
+        // Nothing else ever re-reads an archive document, so an upgrade that
+        // reads documents better must.
+        await using var harness = await AnalysisTestHarness.CreateAsync();
+        await harness.ImportArchiveAsync(Zip(("2015/thesis.docx", DocxFixture.Create([ThesisParagraph]))));
+
+        await using (var context = harness.NewContext())
+        {
+            var text = await context.ExtractedTexts.SingleAsync();
+            text.EngineVersion = "0.0.1";
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = harness.NewContext())
+        {
+            await harness.NewAnalyzer(context).ResumePendingAsync();
+        }
+
+        await using var check = harness.NewContext();
+        (await check.ExtractedTexts.SingleAsync()).EngineVersion.Should().Be(SmartPlagiarism.Engine.EngineInfo.Version);
+    }
+
     // ---------------- importing ----------------
 
     [Fact]
@@ -269,20 +295,20 @@ public class ArchiveImportTests
         await using var context = harness.NewContext();
         var review = new ReviewService(context, new AuditService(context, NullLogger<AuditService>.Instance));
 
-        var match = (await review.GetSubmissionAsync(submissionId))!.Result!.Matches.Should().ContainSingle().Subject;
+        var match = (await review.GetSubmissionAsync(submissionId, harness.TeacherUserId))!.Result!.Matches.Should().ContainSingle().Subject;
         match.ArchiveYear.Should().Be(2016);
         match.MatchedSubmissionId.Should().BeNull();
         match.SourceTitle.Should().Be("Winnowing Revisited");
         match.SourceOwner.Should().Be("Karim Ahmed (2016 archive)");
         match.SimilarityPercent.Should().BeGreaterThan(20);
 
-        var comparison = await review.GetComparisonAsync(match.MatchId);
+        var comparison = await review.GetComparisonAsync(match.MatchId, harness.TeacherUserId);
         comparison!.Source.Title.Should().Be("Winnowing Revisited");
         comparison.Source.Owner.Should().Be("Karim Ahmed (2016 archive)");
 
         var reports = new ReportService(context, new SubmissionAccessService(context), new QuestPdfReportGenerator(), Options.Create(new ReportOptions()));
         var studentText = PdfText((await reports.GetSubmissionReportAsync(submissionId, new SubmissionViewer(harness.StudentUserId, IsStaff: false)))!.Content);
-        var staffText = PdfText((await reports.GetSubmissionReportAsync(submissionId, new SubmissionViewer("teacher-id", IsStaff: true)))!.Content);
+        var staffText = PdfText((await reports.GetSubmissionReportAsync(submissionId, SubmissionViewer.ForTeacher(harness.TeacherUserId)))!.Content);
 
         studentText.Should().Contain("University archive (2016)").And.NotContain("Karim").And.NotContain("Winnowing Revisited");
         staffText.Should().Contain("Karim Ahmed").And.Contain("Archive 2016");

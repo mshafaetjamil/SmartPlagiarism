@@ -84,13 +84,16 @@ public class DashboardService : IDashboardService
             latestSubmissions);
     }
 
-    public async Task<TeacherDashboardDto> GetTeacherDashboardAsync(CancellationToken cancellationToken = default)
+    public async Task<TeacherDashboardDto> GetTeacherDashboardAsync(string teacherUserId, CancellationToken cancellationToken = default)
     {
-        var pendingReviewCount = await _context.Submissions
-            .AsNoTracking()
+        var visible = _context.Submissions.AsNoTracking().VisibleToTeacher(_context, teacherUserId);
+
+        var pendingReviewCount = await visible
             .CountAsync(submission => submission.Status == SubmissionStatus.PendingReview, cancellationToken);
 
-        var analyzedResults = _context.PlagiarismResults.AsNoTracking();
+        var analyzedResults = _context.PlagiarismResults
+            .AsNoTracking()
+            .Where(result => visible.Any(submission => submission.Id == result.SubmissionId));
 
         var analyzedSubmissionCount = await analyzedResults.CountAsync(cancellationToken);
 
@@ -100,8 +103,7 @@ public class DashboardService : IDashboardService
             .Select(result => (decimal?)result.OverallSimilarityPercent)
             .AverageAsync(cancellationToken);
 
-        var recentSubmissions = await _context.Submissions
-            .AsNoTracking()
+        var recentSubmissions = await visible
             .OrderByDescending(submission => submission.SubmittedAtUtc)
             .Take(RecentSubmissionCount)
             .Select(submission => new TeacherSubmissionSummaryDto(

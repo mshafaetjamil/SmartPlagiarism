@@ -35,6 +35,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<DocumentFingerprint> DocumentFingerprints => Set<DocumentFingerprint>();
 
+    public DbSet<FingerprintHash> FingerprintHashes => Set<FingerprintHash>();
+
     public DbSet<PlagiarismResult> PlagiarismResults => Set<PlagiarismResult>();
 
     public DbSet<MatchedDocument> MatchedDocuments => Set<MatchedDocument>();

@@ -53,6 +53,12 @@ internal sealed class AnalysisTestHarness : IAsyncDisposable
 
     public string OtherStudentUserId { get; private set; } = string.Empty;
 
+    /// <summary>A teacher in the department that runs the submissions' course.</summary>
+    public string TeacherUserId { get; private set; } = string.Empty;
+
+    /// <summary>A teacher in another department, who must not see those submissions.</summary>
+    public string OutsideTeacherUserId { get; private set; } = string.Empty;
+
     private int CourseId { get; set; }
 
     private int SemesterId { get; set; }
@@ -86,7 +92,15 @@ internal sealed class AnalysisTestHarness : IAsyncDisposable
     public SubmissionAnalyzer NewAnalyzer(AppDbContext context, IExtractionService? extraction = null)
     {
         var pipeline = NewPipeline(context);
-        return new(context, NewIndexer(context, extraction, pipeline), pipeline, NullLogger<SubmissionAnalyzer>.Instance);
+        var indexer = NewIndexer(context, extraction, pipeline);
+
+        return new(
+            context,
+            indexer,
+            pipeline,
+            new CommonTextFinder(context, pipeline),
+            new EngineUpgrade(context, indexer, NullLogger<EngineUpgrade>.Instance),
+            NullLogger<SubmissionAnalyzer>.Instance);
     }
 
     /// <summary>Extraction and fingerprinting, as the analyzer and the archive importer use them.</summary>
@@ -153,6 +167,33 @@ internal sealed class AnalysisTestHarness : IAsyncDisposable
     public async Task<int> SubmitAsync(params (string FileName, byte[] Content)[] files) =>
         await SubmitAsAsync(StudentProfileId, files);
 
+    /// <summary>Submits as a newly enrolled student of the same course - one more classmate.</summary>
+    public async Task<int> SubmitAsNewStudentAsync(params (string FileName, byte[] Content)[] files)
+    {
+        int profileId;
+
+        await using (var context = NewContext())
+        {
+            var number = Interlocked.Increment(ref _nextStudentNumber);
+            var department = await context.Courses.Where(course => course.Id == CourseId).Select(course => course.DepartmentId).SingleAsync();
+            var profile = new StudentProfile
+            {
+                User = NewUser($"classmate{number}@uni.edu"),
+                StudentNumber = $"2026-{number:000}",
+                DepartmentId = department,
+                EnrollmentYear = 2026,
+            };
+
+            context.StudentProfiles.Add(profile);
+            await context.SaveChangesAsync();
+            profileId = profile.Id;
+        }
+
+        return await SubmitAsAsync(profileId, files);
+    }
+
+    private int _nextStudentNumber = 100;
+
     public async Task<int> SubmitAsOtherStudentAsync(params (string FileName, byte[] Content)[] files) =>
         await SubmitAsAsync(OtherStudentProfileId, files);
 
@@ -217,7 +258,14 @@ internal sealed class AnalysisTestHarness : IAsyncDisposable
         var profile = new StudentProfile { User = student, StudentNumber = "2026-001", Department = department, EnrollmentYear = 2026 };
         var otherProfile = new StudentProfile { User = otherStudent, StudentNumber = "2026-002", Department = department, EnrollmentYear = 2026 };
 
-        context.AddRange(course, semester, profile, otherProfile);
+        var teacher = NewUser("harness.teacher@uni.edu");
+        var outsideTeacher = NewUser("harness.outsider@uni.edu");
+        var otherDepartment = new Department { Code = "HARNESS-OUT", Name = "Another Department" };
+
+        var teacherProfile = new TeacherProfile { User = teacher, EmployeeNumber = "HARNESS-T1", Department = department };
+        var outsideProfile = new TeacherProfile { User = outsideTeacher, EmployeeNumber = "HARNESS-T2", Department = otherDepartment };
+
+        context.AddRange(course, semester, profile, otherProfile, teacherProfile, outsideProfile);
         await context.SaveChangesAsync();
 
         CourseId = course.Id;
@@ -226,6 +274,8 @@ internal sealed class AnalysisTestHarness : IAsyncDisposable
         OtherStudentProfileId = otherProfile.Id;
         StudentUserId = student.Id;
         OtherStudentUserId = otherStudent.Id;
+        TeacherUserId = teacher.Id;
+        OutsideTeacherUserId = outsideTeacher.Id;
     }
 
     private static ApplicationUser NewUser(string email) => new()

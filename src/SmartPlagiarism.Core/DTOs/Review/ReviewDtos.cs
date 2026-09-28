@@ -56,7 +56,30 @@ public sealed record ReviewSubmissionDetailDto(
     SubmissionStatus Status,
     string? TeacherComment,
     IReadOnlyList<ReviewFileDto> Files,
-    ReviewResultDto? Result);
+    ReviewResultDto? Result,
+    IReadOnlyList<ReviewReverseMatchDto> MatchedBy);
+
+/// <summary>
+/// A later submission whose analysis found text from this one. A submission is
+/// compared only with work that existed before it - so re-running it gives the
+/// same result, and an original is never scored as the copy of its copier - so
+/// the first of two students sharing work never has the second in its own
+/// results; this is where the teacher sees it.
+/// </summary>
+/// <param name="MatchId">The later submission's match, for the viewer.</param>
+/// <param name="SimilarityPercent">
+/// Share of the <em>later</em> submission found in this one.
+/// </param>
+/// <param name="CanOpen">The later submission is in the teacher's department, so it can be opened.</param>
+public sealed record ReviewReverseMatchDto(
+    int MatchId,
+    int SubmissionId,
+    string SubmissionTitle,
+    string StudentName,
+    DateTime SubmittedAtUtc,
+    decimal SimilarityPercent,
+    bool IsSameStudent,
+    bool CanOpen);
 
 /// <param name="ExtractionMethod">Null until the file has been extracted.</param>
 /// <param name="Warnings">What extraction could not do - the reason a score may be low.</param>
@@ -69,8 +92,10 @@ public sealed record ReviewFileDto(
     int? WordCount,
     IReadOnlyList<string> Warnings);
 
+/// <param name="CommonTextPercent">Share set aside as text most of the course shares.</param>
 public sealed record ReviewResultDto(
     decimal OverallSimilarityPercent,
+    decimal CommonTextPercent,
     DateTime AnalyzedAtUtc,
     string EngineVersion,
     IReadOnlyList<ReviewMatchDto> Matches);
@@ -90,7 +115,9 @@ public sealed record ReviewMatchDto(
     string SourceOwner,
     int? ArchiveYear,
     decimal SimilarityPercent,
-    int PassageCount);
+    int PassageCount,
+    bool IsOwnEarlierWork,
+    bool CanOpenSource);
 
 /// <summary>Both sides of the match viewer, already cut into render-safe segments.</summary>
 /// <param name="IdenticalFiles">
@@ -101,11 +128,17 @@ public sealed record ReviewMatchDto(
 /// Either file's text was re-extracted after this analysis ran, so the stored
 /// offsets may no longer line up. Re-running the analysis fixes it.
 /// </param>
+/// <param name="SimilarityPercent">Share of the submission in passages found in the source.</param>
+/// <param name="SupportingScores">
+/// Each similarity measure's ratio, keyed by measure name - evidence beside the
+/// headline, notably for reworded copying. Empty for exact duplicates and older results.
+/// </param>
 public sealed record ComparisonDto(
     int MatchId,
     int SubmissionId,
     string SubmissionTitle,
     decimal SimilarityPercent,
+    IReadOnlyDictionary<string, double> SupportingScores,
     int PassageCount,
     bool IdenticalFiles,
     bool SourceChangedSinceAnalysis,

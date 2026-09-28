@@ -48,14 +48,27 @@ public class SubmissionAccessTests
     }
 
     [Fact]
-    public async Task Staff_CanViewAnySubmission()
+    public async Task Teacher_SeesTheirDepartmentsSubmissions_AndNoOtherDepartments()
+    {
+        await using var harness = await AnalysisTestHarness.CreateAsync();
+        var theirs = await harness.SubmitAsOtherStudentAsync(("theirs.docx", DocxFixture.Create([Shared])));
+
+        await using var context = harness.NewContext();
+        var access = new SubmissionAccessService(context);
+
+        (await access.CanViewAsync(theirs, SubmissionViewer.ForTeacher(harness.TeacherUserId))).Should().BeTrue();
+        (await access.CanViewAsync(theirs, SubmissionViewer.ForTeacher(harness.OutsideTeacherUserId))).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Admin_CanViewAnySubmission()
     {
         await using var harness = await AnalysisTestHarness.CreateAsync();
         var theirs = await harness.SubmitAsOtherStudentAsync(("theirs.docx", DocxFixture.Create([Shared])));
 
         await using var context = harness.NewContext();
 
-        (await new SubmissionAccessService(context).CanViewAsync(theirs, new SubmissionViewer("teacher-id", IsStaff: true)))
+        (await new SubmissionAccessService(context).CanViewAsync(theirs, SubmissionViewer.ForAdmin("admin-id")))
             .Should().BeTrue();
     }
 
@@ -77,7 +90,7 @@ public class SubmissionAccessTests
     }
 
     [Fact]
-    public async Task Handler_AllowsTeachersAndAdmins_AndRefusesAnonymousUsers()
+    public async Task Handler_AllowsTheDepartmentsTeachersAndAdmins_AndRefusesEveryoneElse()
     {
         await using var harness = await AnalysisTestHarness.CreateAsync();
         var theirs = await harness.SubmitAsOtherStudentAsync(("theirs.docx", DocxFixture.Create([Shared])));
@@ -85,7 +98,8 @@ public class SubmissionAccessTests
         await using var context = harness.NewContext();
         var handler = new SubmissionAccessHandler(new SubmissionAccessService(context));
 
-        (await Authorize(handler, Principal("teacher-id", ApplicationRoles.Teacher), theirs)).Should().BeTrue();
+        (await Authorize(handler, Principal(harness.TeacherUserId, ApplicationRoles.Teacher), theirs)).Should().BeTrue();
+        (await Authorize(handler, Principal(harness.OutsideTeacherUserId, ApplicationRoles.Teacher), theirs)).Should().BeFalse();
         (await Authorize(handler, Principal("admin-id", ApplicationRoles.Admin), theirs)).Should().BeTrue();
         (await Authorize(handler, new ClaimsPrincipal(new ClaimsIdentity()), theirs)).Should().BeFalse();
     }
@@ -120,7 +134,7 @@ public class SubmissionAccessTests
         var service = NewReportService(context);
 
         var studentCopy = await service.GetSubmissionReportAsync(mine, new SubmissionViewer(harness.StudentUserId, IsStaff: false));
-        var staffCopy = await service.GetSubmissionReportAsync(mine, new SubmissionViewer("teacher-id", IsStaff: true));
+        var staffCopy = await service.GetSubmissionReportAsync(mine, SubmissionViewer.ForTeacher(harness.TeacherUserId));
 
         var studentText = PdfText(studentCopy!.Content);
         var staffText = PdfText(staffCopy!.Content);
@@ -144,9 +158,9 @@ public class SubmissionAccessTests
 
         await using var context = harness.NewContext();
         await new ReviewService(context, new AuditService(context, Microsoft.Extensions.Logging.Abstractions.NullLogger<AuditService>.Instance))
-            .RejectAsync(copy, "Copied from another submission.", "teacher-id");
+            .RejectAsync(copy, "Copied from another submission.", harness.TeacherUserId);
 
-        var report = await NewReportService(context).GetSubmissionReportAsync(copy, new SubmissionViewer("teacher-id", IsStaff: true));
+        var report = await NewReportService(context).GetSubmissionReportAsync(copy, SubmissionViewer.ForTeacher(harness.TeacherUserId));
         var text = PdfText(report!.Content);
 
         report.ContentType.Should().Be("application/pdf");

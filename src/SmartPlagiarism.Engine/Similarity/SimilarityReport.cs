@@ -13,9 +13,15 @@ public enum MatchKind
 }
 
 /// <param name="DocumentId">The matched document.</param>
-/// <param name="SimilarityPercent">Combined score against it, 0-100.</param>
+/// <param name="SimilarityPercent">
+/// Share of the analysed document's words inside passages found in this
+/// document, 0-100.
+/// </param>
 /// <param name="SharedFingerprintCount">Fingerprints in common; 0 for exact duplicates.</param>
-/// <param name="ComponentScores">Each algorithm's own ratio, for explaining the number.</param>
+/// <param name="ComponentScores">
+/// Each algorithm's own ratio and their weighted blend, as supporting evidence;
+/// empty for exact duplicates, where no algorithm ran.
+/// </param>
 /// <param name="Fragments">The passages the two documents share.</param>
 public sealed record DocumentMatch(
     int DocumentId,
@@ -29,19 +35,25 @@ public sealed record DocumentMatch(
 /// The outcome of analysing one document against the corpus.
 /// </summary>
 /// <param name="OverallSimilarityPercent">
-/// How much of this document was found elsewhere, 0-100. This is coverage across
-/// <em>all</em> matches, not the single highest score - a document assembled from
-/// three sources at 30% each has been almost entirely copied, and reporting 30%
-/// would understate that badly.
+/// Share of this document's words inside passages found anywhere, 0-100. This is
+/// coverage across <em>all</em> matches, not the single highest score - a
+/// document assembled from three sources at 30% each has been almost entirely
+/// copied, and reporting 30% would understate that badly.
 /// </param>
 /// <param name="Matches">Per-document matches, highest similarity first.</param>
 /// <param name="CandidatesConsidered">Documents the fingerprint index shortlisted.</param>
 /// <param name="CandidatesCompared">Shortlisted documents that had text to compare.</param>
+/// <param name="CommonTextPercent">
+/// Share of this document's words in passages that are common text - a cover
+/// page or declaration most of the course shares - which is not counted in
+/// <paramref name="OverallSimilarityPercent"/>, 0-100.
+/// </param>
 public sealed record SimilarityReport(
     decimal OverallSimilarityPercent,
     IReadOnlyList<DocumentMatch> Matches,
     int CandidatesConsidered,
-    int CandidatesCompared)
+    int CandidatesCompared,
+    decimal CommonTextPercent = 0m)
 {
     public static SimilarityReport Empty { get; } = new(0m, [], 0, 0);
 }

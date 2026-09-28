@@ -39,8 +39,10 @@ public sealed record SubmissionFileDto(
     string Sha256Hash);
 
 /// <summary>Null on the detail DTO until an analysis has completed.</summary>
+/// <param name="CommonTextPercent">Share set aside as text most of the course shares.</param>
 public sealed record SubmissionResultDto(
     decimal OverallSimilarityPercent,
+    decimal CommonTextPercent,
     DateTime AnalyzedAtUtc,
     string EngineVersion,
     int MatchCount);

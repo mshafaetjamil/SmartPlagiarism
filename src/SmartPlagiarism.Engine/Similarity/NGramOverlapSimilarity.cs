@@ -1,19 +1,20 @@
 namespace SmartPlagiarism.Engine.Similarity;
 
 /// <summary>
-/// Overlap of word 3-grams: how many of the smaller document's three-word runs
-/// also appear in the larger one.
+/// Containment of word 3-grams: how many of the analysed document's three-word
+/// runs also appear in the source.
 ///
 /// This is the strongest evidence of copying, because matching a run of three
 /// consecutive words in order is far less likely to happen by chance than sharing
-/// individual words. It is what the combined score leans on most.
+/// individual words.
 ///
-/// The denominator is the <em>smaller</em> document's n-gram count - the overlap
-/// coefficient - rather than the union used by Jaccard. The question worth asking
-/// is "how much of this document appears in that one", and a union denominator
-/// would dilute a real match simply because the other document is long. The
-/// trade-off is that a short document quoted in full scores 100%, which is
-/// arguably the correct answer anyway.
+/// The denominator is the <em>analysed</em> document's n-gram count: the question
+/// is "how much of this submission appears in that source". An earlier version
+/// divided by the smaller document, which made a 23-word abstract quoted inside a
+/// 300-word submission score 100% against it although 7% of the submission was
+/// copied. Measured this way it scores 7%, and a short source quoted in full is
+/// still found - its passage is located and highlighted - without claiming the
+/// submission is a copy of it.
 /// </summary>
 public sealed class NGramOverlapSimilarity : ISimilarityAlgorithm
 {
@@ -38,27 +39,24 @@ public sealed class NGramOverlapSimilarity : ISimilarityAlgorithm
         ArgumentNullException.ThrowIfNull(documentA);
         ArgumentNullException.ThrowIfNull(documentB);
 
-        var hashesA = documentA.DistinctNGramHashes(_nGramSize);
-        var hashesB = documentB.DistinctNGramHashes(_nGramSize);
+        var source = documentA.DistinctNGramHashes(_nGramSize);
+        var analysed = documentB.DistinctNGramHashes(_nGramSize);
 
-        if (hashesA.Count == 0 || hashesB.Count == 0)
+        if (source.Count == 0 || analysed.Count == 0)
         {
             return 0;
         }
 
-        var smaller = hashesA.Count <= hashesB.Count ? hashesA : hashesB;
-        var larger = ReferenceEquals(smaller, hashesA) ? hashesB : hashesA;
-
         var shared = 0;
 
-        foreach (var hash in smaller)
+        foreach (var hash in analysed)
         {
-            if (larger.Contains(hash))
+            if (source.Contains(hash))
             {
                 shared++;
             }
         }
 
-        return (double)shared / smaller.Count;
+        return (double)shared / analysed.Count;
     }
 }

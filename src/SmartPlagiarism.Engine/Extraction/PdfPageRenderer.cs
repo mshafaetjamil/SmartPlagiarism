@@ -42,11 +42,19 @@ public sealed class PdfiumPageRenderer : IPdfPageRenderer
     private static readonly Lock s_pdfiumLock = new();
 
     private readonly int _dpi;
+    private readonly int _maxPixels;
 
-    public PdfiumPageRenderer(int dpi = DefaultDpi)
+    /// <param name="maxPixels">
+    /// Longest side of the drawn image. A page too large to draw at
+    /// <paramref name="dpi"/> within it is drawn at a lower resolution instead,
+    /// since a PDF may declare a page of any size.
+    /// </param>
+    public PdfiumPageRenderer(int dpi = DefaultDpi, int maxPixels = 6000)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(dpi, 72);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxPixels, 100);
         _dpi = dpi;
+        _maxPixels = maxPixels;
     }
 
     public PageRenderResult RenderPng(byte[] pdf, int pageNumber)
@@ -66,7 +74,13 @@ public sealed class PdfiumPageRenderer : IPdfPageRenderer
 
             lock (s_pdfiumLock)
             {
-                Conversion.SavePng(png, pdf, pageNumber - 1, password: null, new RenderOptions(Dpi: _dpi));
+                var size = Conversion.GetPageSize(pdf, pageNumber - 1, password: null);
+                var longestSidePoints = Math.Max(size.Width, size.Height);
+                var dpi = longestSidePoints * _dpi / 72 <= _maxPixels
+                    ? _dpi
+                    : Math.Max(1, (int)(_maxPixels * 72 / longestSidePoints));
+
+                Conversion.SavePng(png, pdf, pageNumber - 1, password: null, new RenderOptions(Dpi: dpi));
             }
 
             return PageRenderResult.Success(png.ToArray());

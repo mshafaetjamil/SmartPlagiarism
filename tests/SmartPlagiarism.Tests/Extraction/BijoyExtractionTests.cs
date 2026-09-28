@@ -1,6 +1,7 @@
 using System.Text;
 using FluentAssertions;
 using SmartPlagiarism.Engine.Extraction;
+using SmartPlagiarism.Engine.Ocr;
 using SmartPlagiarism.Engine.Similarity;
 using SmartPlagiarism.Tests.Similarity;
 
@@ -13,6 +14,8 @@ namespace SmartPlagiarism.Tests.Extraction;
 /// </summary>
 public class BijoyExtractionTests
 {
+    private static readonly IOcrService s_noOcr = new NullOcrService("not needed for typed text");
+
     /// <summary>
     /// শিক্ষার্থীদের প্রতিবেদন থেকে লেখা আলাদা করা হয় এবং তারপর তুলনা করা হয়। -
     /// as a SutonnyMJ typist enters it.
@@ -27,7 +30,7 @@ public class BijoyExtractionTests
     {
         var docx = DocxFixture.Create([Bijoy], runFont: "SutonnyMJ");
 
-        var result = await new DocxTextExtractor().ExtractAsync(new MemoryStream(docx));
+        var result = await new DocxTextExtractor(s_noOcr).ExtractAsync(new MemoryStream(docx));
 
         result.FullText.Trim().Should().Be(s_unicode);
     }
@@ -38,7 +41,7 @@ public class BijoyExtractionTests
         // A Bangladeshi template sets SutonnyMJ once, on Normal; no run names it.
         var docx = DocxFixture.Create([Bijoy], normalStyleFont: "SutonnyMJ");
 
-        var result = await new DocxTextExtractor().ExtractAsync(new MemoryStream(docx));
+        var result = await new DocxTextExtractor(s_noOcr).ExtractAsync(new MemoryStream(docx));
 
         result.FullText.Trim().Should().Be(s_unicode);
     }
@@ -50,7 +53,7 @@ public class BijoyExtractionTests
         // just letters, and must stay exactly as written.
         var docx = DocxFixture.Create(["Avwg 2026"], runFont: "Times New Roman");
 
-        var result = await new DocxTextExtractor().ExtractAsync(new MemoryStream(docx));
+        var result = await new DocxTextExtractor(s_noOcr).ExtractAsync(new MemoryStream(docx));
 
         result.FullText.Trim().Should().Be("Avwg 2026");
     }
@@ -60,7 +63,7 @@ public class BijoyExtractionTests
     {
         var pptx = PptxFixture.Create([[Bijoy]], latinFont: "SutonnyMJ");
 
-        var result = await new PptxTextExtractor().ExtractAsync(new MemoryStream(pptx));
+        var result = await new PptxTextExtractor(s_noOcr).ExtractAsync(new MemoryStream(pptx));
 
         result.FullText.Trim().Should().Be(s_unicode);
     }
@@ -69,7 +72,7 @@ public class BijoyExtractionTests
     public async Task BijoyReport_MatchesTheSameReportTypedInUnicode()
     {
         var bijoyDocx = DocxFixture.Create([Bijoy], runFont: "SutonnyMJ");
-        var extracted = await new DocxTextExtractor().ExtractAsync(new MemoryStream(bijoyDocx));
+        var extracted = await new DocxTextExtractor(s_noOcr).ExtractAsync(new MemoryStream(bijoyDocx));
 
         var corpus = new InMemoryCorpus();
         corpus.Add(1, s_unicode);

@@ -21,6 +21,15 @@ internal sealed record MatchSource(
 {
     public bool IsArchive => ArchiveYear is not null;
 
+    /// <summary>
+    /// The matched file is one of this student's own earlier submissions, which
+    /// the analysis lists but leaves out of the overall figure.
+    /// </summary>
+    public bool IsOwnEarlierWorkOf(int studentProfileId) => !IsArchive && StudentProfileId == studentProfileId;
+
+    /// <summary>Added to a source's label wherever the uncounted share is shown.</summary>
+    public const string NotCountedNote = " - own earlier work, not counted in the overall figure";
+
     public string Title => (IsArchive ? ArchiveTitle : SubmissionTitle) ?? string.Empty;
 
     /// <summary>The student, or the archive author and year.</summary>
@@ -41,7 +50,7 @@ internal sealed record MatchSource(
     /// </summary>
     public string StudentLabel(int ownStudentProfileId) => IsArchive
         ? string.Create(CultureInfo.InvariantCulture, $"University archive ({ArchiveYear})")
-        : StudentProfileId == ownStudentProfileId
-            ? $"Your own submission \"{SubmissionTitle}\""
+        : IsOwnEarlierWorkOf(ownStudentProfileId)
+            ? $"Your own submission \"{SubmissionTitle}\" (not counted in the overall figure)"
             : $"Another student's submission ({CourseCode})";
 }

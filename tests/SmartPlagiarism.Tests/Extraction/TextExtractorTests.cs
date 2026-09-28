@@ -97,6 +97,54 @@ public class TextExtractorTests
         result.Warnings.Should().ContainSingle().Which.Should().Contain("Page 2");
     }
 
+    [Fact]
+    public async Task Pdf_LineBreak_KeepsTheWordsOnEitherSideApart()
+    {
+        // Nothing in the file separates the lines; "report" and "body" were glued.
+        var pdf = PdfFixture.CreateLines("my final year report", "body text continues here");
+        var extractor = new PdfTextExtractor(s_noOcr, s_renderer);
+
+        using var stream = new MemoryStream(pdf);
+        var result = await extractor.ExtractAsync(stream);
+
+        result.NormalizedText.Should().Be("my final year report body text continues here");
+        result.WordCount.Should().Be(8);
+    }
+
+    [Fact]
+    public async Task Pdf_WordsPlacedWithoutSpaceGlyphs_AreStillSeparated()
+    {
+        // LaTeX output: every word positioned on its own, no space characters at all.
+        var pdf = PdfFixture.CreateWithoutSpaceGlyphs("the quick brown fox jumps over the lazy dog");
+        var extractor = new PdfTextExtractor(s_noOcr, s_renderer);
+
+        using var stream = new MemoryStream(pdf);
+        var result = await extractor.ExtractAsync(stream);
+
+        result.NormalizedText.Should().Be("the quick brown fox jumps over the lazy dog");
+        result.WordCount.Should().Be(9);
+    }
+
+    [Fact]
+    public async Task Pdf_AndDocx_OfTheSameText_ReadTheSameWords()
+    {
+        // Copying a report between formats must not change what is compared.
+        string[] lines =
+        [
+            "Winnowing selects a subset of the hashes",
+            "so that matching passages share fingerprints",
+            "even when the surrounding text differs.",
+        ];
+
+        using var pdfStream = new MemoryStream(PdfFixture.CreateLines(lines));
+        using var docxStream = new MemoryStream(DocxFixture.Create(lines));
+
+        var fromPdf = await new PdfTextExtractor(s_noOcr, s_renderer).ExtractAsync(pdfStream);
+        var fromDocx = await new DocxTextExtractor(s_noOcr).ExtractAsync(docxStream);
+
+        fromPdf.NormalizedText.Should().Be(fromDocx.NormalizedText);
+    }
+
     // ---------------- DOCX ----------------
 
     [Fact]
@@ -108,7 +156,7 @@ public class TextExtractorTests
             "This draft describes the detection pipeline.",
             "It closes with an evaluation.",
         ]);
-        var extractor = new DocxTextExtractor();
+        var extractor = new DocxTextExtractor(s_noOcr);
 
         using var stream = new MemoryStream(docx);
         var result = await extractor.ExtractAsync(stream);
@@ -124,7 +172,7 @@ public class TextExtractorTests
     public async Task Docx_WithoutPageBreaks_IsOneSegment()
     {
         var docx = DocxFixture.Create(["Only paragraph."]);
-        var extractor = new DocxTextExtractor();
+        var extractor = new DocxTextExtractor(s_noOcr);
 
         using var stream = new MemoryStream(docx);
         var result = await extractor.ExtractAsync(stream);
@@ -140,7 +188,7 @@ public class TextExtractorTests
         var docx = DocxFixture.Create(
             ["Text before the break.", "Text after the break."],
             pageBreakAfterParagraph: 0);
-        var extractor = new DocxTextExtractor();
+        var extractor = new DocxTextExtractor(s_noOcr);
 
         using var stream = new MemoryStream(docx);
         var result = await extractor.ExtractAsync(stream);
@@ -150,7 +198,80 @@ public class TextExtractorTests
         result.Segments[1].Text.Should().Contain("after");
     }
 
+    [Fact]
+    public async Task Docx_LineBreaksCarriageReturnsAndTabs_SeparateWords()
+    {
+        // Shift+Enter, a carriage return and a tab are elements, not characters.
+        var docx = DocxFixture.FromBodyXml("""
+            <w:p><w:r><w:t>breakleft</w:t></w:r><w:r><w:br/></w:r><w:r><w:t>breakright</w:t></w:r></w:p>
+            <w:p><w:r><w:t>returnleft</w:t><w:cr/><w:t>returnright</w:t></w:r></w:p>
+            <w:p><w:r><w:t>tableft</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t>tabright</w:t></w:r></w:p>
+            """);
+
+        using var stream = new MemoryStream(docx);
+        var result = await new DocxTextExtractor(s_noOcr).ExtractAsync(stream);
+
+        result.NormalizedText.Should().Be("breakleft breakright returnleft returnright tableft tabright");
+    }
+
+    [Fact]
+    public async Task Docx_TextBox_IsReadOnceNotFromItsVmlFallbackToo()
+    {
+        var docx = DocxFixture.FromBodyXml("""
+            <w:p><w:r><w:t>anchor paragraph</w:t></w:r><w:r>
+              <mc:AlternateContent>
+                <mc:Choice Requires="wps"><w:drawing><wp:anchor><a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:txbx><w:txbxContent><w:p><w:r><w:t>text box sentence</w:t></w:r></w:p></w:txbxContent></wps:txbx></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice>
+                <mc:Fallback><w:pict><v:shape><v:textbox><w:txbxContent><w:p><w:r><w:t>text box sentence</w:t></w:r></w:p></w:txbxContent></v:textbox></v:shape></w:pict></mc:Fallback>
+              </mc:AlternateContent>
+            </w:r></w:p>
+            """);
+
+        using var stream = new MemoryStream(docx);
+        var result = await new DocxTextExtractor(s_noOcr).ExtractAsync(stream);
+
+        result.NormalizedText.Should().Be("anchor paragraph text box sentence");
+    }
+
+    [Fact]
+    public async Task Docx_SmartArtText_IsRead()
+    {
+        var docx = DocxFixture.FromBodyXml(
+            "<w:p><w:r><w:t>Body text.</w:t></w:r></w:p>",
+            smartArtParagraphs: ["Collect submissions", "Compare fingerprints"]);
+
+        using var stream = new MemoryStream(docx);
+        var result = await new DocxTextExtractor(s_noOcr).ExtractAsync(stream);
+
+        result.NormalizedText.Should().Be("body text collect submissions compare fingerprints");
+    }
+
     // ---------------- PPTX ----------------
+
+    [Fact]
+    public async Task Pptx_LineBreakInsideATextBox_SeparatesWords()
+    {
+        var pptx = PptxFixture.FromParagraphXml(
+            "<a:p><a:r><a:t>breakleft</a:t></a:r><a:br/><a:r><a:t>breakright</a:t></a:r></a:p>");
+
+        using var stream = new MemoryStream(pptx);
+        var result = await new PptxTextExtractor(s_noOcr).ExtractAsync(stream);
+
+        result.NormalizedText.Should().Be("breakleft breakright");
+    }
+
+    [Fact]
+    public async Task Pptx_SmartArtText_IsReadWithItsSlide()
+    {
+        var pptx = PptxFixture.FromParagraphXml(
+            "<a:p><a:r><a:t>Method</a:t></a:r></a:p>",
+            smartArtParagraphs: ["Extract text", "Winnow fingerprints"]);
+
+        using var stream = new MemoryStream(pptx);
+        var result = await new PptxTextExtractor(s_noOcr).ExtractAsync(stream);
+
+        result.Segments.Should().ContainSingle();
+        result.NormalizedText.Should().Be("method extract text winnow fingerprints");
+    }
 
     [Fact]
     public async Task Pptx_ExtractsOneSegmentPerSlideInOrder()
@@ -161,7 +282,7 @@ public class TextExtractorTests
             ["Method", "N-gram fingerprints"],
             ["Results"],
         ]);
-        var extractor = new PptxTextExtractor();
+        var extractor = new PptxTextExtractor(s_noOcr);
 
         using var stream = new MemoryStream(pptx);
         var result = await extractor.ExtractAsync(stream);
@@ -179,7 +300,7 @@ public class TextExtractorTests
     public async Task Pptx_WithNoSlides_WarnsAndReturnsEmpty()
     {
         var pptx = PptxFixture.Create([]);
-        var extractor = new PptxTextExtractor();
+        var extractor = new PptxTextExtractor(s_noOcr);
 
         using var stream = new MemoryStream(pptx);
         var result = await extractor.ExtractAsync(stream);
@@ -194,7 +315,7 @@ public class TextExtractorTests
     public async Task NormalizedTextIsFoldedWhileFullTextKeepsTheOriginal()
     {
         var docx = DocxFixture.Create(["The Cost Was $40, Wasn't It?"]);
-        var extractor = new DocxTextExtractor();
+        var extractor = new DocxTextExtractor(s_noOcr);
 
         using var stream = new MemoryStream(docx);
         var result = await extractor.ExtractAsync(stream);
@@ -209,7 +330,7 @@ public class TextExtractorTests
     {
         // The real caller hands over a FileStream, not a MemoryStream.
         var docx = DocxFixture.Create(["Body text."]);
-        var extractor = new DocxTextExtractor();
+        var extractor = new DocxTextExtractor(s_noOcr);
 
         using var stream = new ForwardOnlyStream(docx);
         var result = await extractor.ExtractAsync(stream);

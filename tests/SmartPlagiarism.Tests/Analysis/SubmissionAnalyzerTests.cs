@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.DTOs.Extraction;
+using SmartPlagiarism.Core.Entities;
 using SmartPlagiarism.Core.Enums;
 using SmartPlagiarism.Engine.Matching;
 using SmartPlagiarism.Tests.Extraction;
@@ -197,6 +198,153 @@ public class SubmissionAnalyzerTests
         await using var check = harness.NewContext();
         (await check.Submissions.SingleAsync(submission => submission.Id == interruptedId))
             .AnalysisStatus.Should().Be(AnalysisStatus.Queued);
+    }
+
+    [Fact]
+    public async Task ReRunningTheOriginal_AfterSomeoneCopiedIt_DoesNotScoreItAsTheCopy()
+    {
+        await using var harness = await AnalysisTestHarness.CreateAsync();
+
+        var originalId = await harness.SubmitAsync(("original.docx", Docx(Introduction, CopiedParagraph, Conclusion)));
+        var copyId = await harness.SubmitAsOtherStudentAsync(("copy.docx", Docx(OwnWork, CopiedParagraph)));
+
+        await harness.AnalyzeAsync(originalId);
+        await harness.AnalyzeAsync(copyId);
+
+        await using (var context = harness.NewContext())
+        {
+            (await context.Submissions.SingleAsync(submission => submission.Id == originalId)).RequeueForAnalysis();
+            await context.SaveChangesAsync();
+        }
+
+        await harness.AnalyzeAsync(originalId);
+
+        await using var check = harness.NewContext();
+        var original = await check.PlagiarismResults.Include(result => result.Matches).SingleAsync(result => result.SubmissionId == originalId);
+
+        original.OverallSimilarityPercent.Should().Be(0m, "the copy came later; it is the copy's result that shows the match");
+        original.Matches.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ResubmissionBySameStudent_ListsTheEarlierOneWithoutCountingIt()
+    {
+        await using var harness = await AnalysisTestHarness.CreateAsync();
+
+        var firstId = await harness.SubmitAsync(("draft.docx", Docx(Introduction, CopiedParagraph)));
+        var secondId = await harness.SubmitAsync(("final.docx", Docx(Introduction, CopiedParagraph, Conclusion)));
+
+        await harness.AnalyzeAsync(firstId);
+        await harness.AnalyzeAsync(secondId);
+
+        await using var context = harness.NewContext();
+        var second = await context.Submissions
+            .Include(submission => submission.PlagiarismResult!)
+            .ThenInclude(result => result.Matches)
+            .SingleAsync(submission => submission.Id == secondId);
+
+        second.PlagiarismResult!.OverallSimilarityPercent.Should().Be(0m);
+        second.PlagiarismResult.Matches.Should().ContainSingle("the earlier draft is still listed for the teacher");
+    }
+
+    [Fact]
+    public async Task CoverPageTheWholeClassShares_IsSetAsideRatherThanMatchingEveryClassmate()
+    {
+        const string coverPage =
+            "Department of Computer Science and Engineering. A project report submitted in partial fulfilment "
+            + "of the requirements for the degree of Bachelor of Science in Computer Science and Engineering.";
+
+        await using var harness = await AnalysisTestHarness.CreateAsync();
+
+        string[] classmatesOwnWork =
+        [
+            "Rainfall in the northern districts was recorded daily for two monsoon seasons by volunteers.",
+            "The library catalogue was rebuilt around a search index that tolerates spelling mistakes.",
+            "Solar panels on the hostel roof were monitored to compare cleaning schedules against output.",
+            "A survey of rickshaw pullers examined how mobile payments changed their daily earnings.",
+            "Traffic at the main junction was counted by camera to model the effect of a new signal.",
+            "The canteen menu was redesigned using nutrition data collected from student volunteers.",
+        ];
+
+        foreach (var ownWork in classmatesOwnWork)
+        {
+            await harness.AnalyzeAsync(await harness.SubmitAsNewStudentAsync(("report.docx", Docx(coverPage, ownWork))));
+        }
+
+        var id = await harness.SubmitAsync(("mine.docx", Docx(coverPage, OwnWork)));
+        await harness.AnalyzeAsync(id);
+
+        await using var context = harness.NewContext();
+        var result = await context.PlagiarismResults.Include(candidate => candidate.Matches).SingleAsync(candidate => candidate.SubmissionId == id);
+
+        result.Matches.Should().BeEmpty("sharing the cover page is not copying from six classmates");
+        result.OverallSimilarityPercent.Should().Be(0m);
+        result.CommonTextPercent.Should().BeGreaterThan(20m);
+    }
+
+    [Fact]
+    public async Task ResumePending_AfterAnEngineUpgrade_QueuesResultsTheOldEngineProduced()
+    {
+        await using var harness = await AnalysisTestHarness.CreateAsync();
+        var id = await harness.SubmitAsync(("a.docx", Docx(Introduction)));
+        await harness.AnalyzeAsync(id);
+
+        await using (var context = harness.NewContext())
+        {
+            // As if an earlier engine had read and scored it.
+            var result = await context.PlagiarismResults.SingleAsync(candidate => candidate.SubmissionId == id);
+            result.EngineVersion = "0.0.1";
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = harness.NewContext())
+        {
+            (await harness.NewAnalyzer(context).ResumePendingAsync()).Should().Equal(id);
+        }
+
+        await harness.AnalyzeAsync(id);
+
+        await using var check = harness.NewContext();
+        (await check.PlagiarismResults.SingleAsync(candidate => candidate.SubmissionId == id))
+            .EngineVersion.Should().Be(SmartPlagiarism.Engine.EngineInfo.Version);
+    }
+
+    [Fact]
+    public async Task ResumePending_InterruptedAtEveryAttempt_FailsInsteadOfQueuingAgain()
+    {
+        // A file that takes the server down would otherwise do so at every start.
+        await using var harness = await AnalysisTestHarness.CreateAsync();
+
+        var submissionId = await harness.SubmitAsync(("a.docx", Docx(Introduction)));
+
+        for (var attempt = 1; attempt <= Submission.MaxAnalysisAttempts; attempt++)
+        {
+            await using (var context = harness.NewContext())
+            {
+                var submission = await context.Submissions.SingleAsync(candidate => candidate.Id == submissionId);
+                submission.MarkProcessing();
+                await context.SaveChangesAsync();
+            }
+
+            await using (var context = harness.NewContext())
+            {
+                var pending = await harness.NewAnalyzer(context).ResumePendingAsync();
+
+                if (attempt < Submission.MaxAnalysisAttempts)
+                {
+                    pending.Should().Equal(submissionId);
+                }
+                else
+                {
+                    pending.Should().BeEmpty();
+                }
+            }
+        }
+
+        await using var check = harness.NewContext();
+        var failed = await check.Submissions.SingleAsync(submission => submission.Id == submissionId);
+        failed.AnalysisStatus.Should().Be(AnalysisStatus.Failed);
+        failed.AnalysisError.Should().Contain("every time");
     }
 
     private sealed class ThrowingExtractionService : IExtractionService

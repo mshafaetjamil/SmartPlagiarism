@@ -201,33 +201,4 @@ public static class FingerprintSerializer
 
         return hashes;
     }
-
-    /// <summary>
-    /// Counts hashes in a packed blob that appear in <paramref name="wanted"/>,
-    /// without allocating the unpacked array.
-    ///
-    /// This is the hot path of candidate shortlisting: it runs once per document in
-    /// the corpus, so it reads the blob in place.
-    /// </summary>
-    public static int CountShared(ReadOnlySpan<byte> packed, IReadOnlySet<ulong> wanted)
-    {
-        ArgumentNullException.ThrowIfNull(wanted);
-
-        if (packed.Length % BytesPerHash != 0)
-        {
-            return 0;
-        }
-
-        var shared = 0;
-
-        for (var offset = 0; offset + BytesPerHash <= packed.Length; offset += BytesPerHash)
-        {
-            if (wanted.Contains(BinaryPrimitives.ReadUInt64LittleEndian(packed.Slice(offset, BytesPerHash))))
-            {
-                shared++;
-            }
-        }
-
-        return shared;
-    }
 }
