@@ -61,14 +61,10 @@ public class UserAdministrationService : IUserAdministrationService
                 : users.Where(user => user.LockoutEnd == DeactivatedUntil);
         }
 
-        var totalCount = await users.CountAsync(cancellationToken);
-        var page = PagedResult<UserListItemDto>.ClampPage(query.Page, totalCount, UserListQuery.PageSize);
-
         var rows = await users
             .OrderBy(user => user.FullName)
             .ThenBy(user => user.Email)
-            .Skip((page - 1) * UserListQuery.PageSize)
-            .Take(UserListQuery.PageSize)
+            .ThenBy(user => user.Id)
             .Select(user => new
             {
                 user.Id,
@@ -88,11 +84,11 @@ public class UserAdministrationService : IUserAdministrationService
                     .Select(profile => new { Number = profile.EmployeeNumber, profile.Department.Code })
                     .FirstOrDefault(),
             })
-            .ToListAsync(cancellationToken);
+            .ToPagedResultAsync(query.Page, UserListQuery.PageSize, cancellationToken);
 
         var now = DateTimeOffset.UtcNow;
 
-        var items = rows.Select(row =>
+        var items = rows.Items.Select(row =>
         {
             var deactivated = row.LockoutEnd == DeactivatedUntil;
 
@@ -107,7 +103,7 @@ public class UserAdministrationService : IUserAdministrationService
                 !deactivated && row.LockoutEnd > now ? row.LockoutEnd : null);
         }).ToList();
 
-        return new PagedResult<UserListItemDto>(items, page, UserListQuery.PageSize, totalCount);
+        return new PagedResult<UserListItemDto>(items, rows.Page, rows.PageSize, rows.TotalCount);
     }
 
     public async Task<AdminResult> CreateAsync(CreateUserRequest request, string adminUserId, CancellationToken cancellationToken = default)

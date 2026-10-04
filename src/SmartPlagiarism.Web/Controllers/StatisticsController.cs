@@ -21,9 +21,10 @@ public class StatisticsController : Controller
         _analysis = analysis;
     }
 
+    /// <param name="page">The page of the failed-analyses list.</param>
     [HttpGet]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken) =>
-        View(await _statistics.GetStatisticsAsync(cancellationToken: cancellationToken));
+    public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default) =>
+        View(await _statistics.GetStatisticsAsync(failedPage: page, cancellationToken: cancellationToken));
 
     /// <summary>Queues a failed analysis to run again - after OCR is installed, say.</summary>
     [HttpPost]

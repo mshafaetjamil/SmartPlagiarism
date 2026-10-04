@@ -3,7 +3,7 @@
     ViewData["Title"] = "API key created";
 }
 
-<div class="container py-4" style="max-width: 760px;">
+<div class="container py-4 mw-760">
     <h1 class="h3 mb-3">Key created for @Model.Name</h1>
 
     <div class="alert alert-warning" role="alert">
@@ -14,7 +14,7 @@
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body">
             <label for="api-key" class="form-label small">API key</label>
-            <input id="api-key" class="form-control font-monospace" value="@Model.Key" readonly onclick="this.select()" />
+            <input id="api-key" class="form-control font-monospace" value="@Model.Key" readonly data-select-on-click />
             <p class="small text-body-secondary mt-2 mb-0">
                 Send it in the <code>X-Api-Key</code> header of every request to <code>/api/v1</code>.
             </p>

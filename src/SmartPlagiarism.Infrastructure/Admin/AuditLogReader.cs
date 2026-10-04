@@ -58,14 +58,9 @@ public class AuditLogReader : IAuditLogReader
             entries = entries.Where(entry => entry.Log.TimestampUtc < before);
         }
 
-        var totalCount = await entries.CountAsync(cancellationToken);
-        var page = PagedResult<AuditLogEntryDto>.ClampPage(query.Page, totalCount, AuditLogQuery.PageSize);
-
-        var items = await entries
+        return await entries
             .OrderByDescending(entry => entry.Log.TimestampUtc)
             .ThenByDescending(entry => entry.Log.Id)
-            .Skip((page - 1) * AuditLogQuery.PageSize)
-            .Take(AuditLogQuery.PageSize)
             .Select(entry => new AuditLogEntryDto(
                 entry.Log.Id,
                 entry.Log.TimestampUtc,
@@ -75,9 +70,7 @@ public class AuditLogReader : IAuditLogReader
                 entry.Log.EntityType,
                 entry.Log.EntityId,
                 entry.Log.Details))
-            .ToListAsync(cancellationToken);
-
-        return new PagedResult<AuditLogEntryDto>(items, page, AuditLogQuery.PageSize, totalCount);
+            .ToPagedResultAsync(query.Page, AuditLogQuery.PageSize, cancellationToken);
     }
 
     public async Task<AuditLogFilterOptions> GetFilterOptionsAsync(CancellationToken cancellationToken = default) =>

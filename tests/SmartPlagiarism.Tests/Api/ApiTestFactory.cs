@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -44,6 +45,9 @@ public class ApiTestFactory : WebApplicationFactory<Program>
     /// <summary>Uploads allowed per key per minute; high by default so only the rate-limit test meets it.</summary>
     protected virtual int UploadsPerMinute => 1000;
 
+    /// <summary>Where the app's JSON log files go - the temporary folder, not the source tree.</summary>
+    public string LogDirectory => Path.Combine(_root, "logs");
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         Directory.CreateDirectory(_root);
@@ -53,6 +57,7 @@ public class ApiTestFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:DefaultConnection", "Server=replaced-by-sqlite-in-tests");
         builder.UseSetting("FileStorage:RootPath", Path.Combine(_root, "uploads"));
+        builder.UseSetting("LogFile:Path", Path.Combine(LogDirectory, "app-.json"));
         builder.UseSetting("Ocr:Enabled", "false");
         builder.UseSetting("Api:UploadsPerMinute", UploadsPerMinute.ToString(CultureInfo.InvariantCulture));
 
@@ -98,6 +103,72 @@ public class ApiTestFactory : WebApplicationFactory<Program>
     {
         await using var scope = Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<AppDbContext>().Submissions.CountAsync();
+    }
+
+    /// <summary>
+    /// The first event in the JSON log file that <paramref name="match"/> accepts.
+    /// Waits a little: a request's own event is written as it finishes, which can
+    /// be just after the client has its response.
+    /// </summary>
+    public async Task<JsonElement> WaitForLogEventAsync(Func<JsonElement, bool> match)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+
+        while (true)
+        {
+            foreach (var file in Directory.Exists(LogDirectory) ? Directory.GetFiles(LogDirectory) : [])
+            {
+                if (await FindLogEventAsync(file, match) is { } found)
+                {
+                    return found;
+                }
+            }
+
+            if (DateTime.UtcNow > deadline)
+            {
+                throw new TimeoutException($"No matching event was logged to {LogDirectory}. Last events:\n{await LastLogLinesAsync(5)}");
+            }
+
+            await Task.Delay(100);
+        }
+    }
+
+    private async Task<string> LastLogLinesAsync(int count)
+    {
+        var lines = new List<string>();
+
+        foreach (var file in Directory.Exists(LogDirectory) ? Directory.GetFiles(LogDirectory) : [])
+        {
+            await using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream);
+            lines.AddRange((await reader.ReadToEndAsync()).Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        return lines.Count == 0 ? "(no log file)" : string.Join('\n', lines.TakeLast(count));
+    }
+
+    private static async Task<JsonElement?> FindLogEventAsync(string file, Func<JsonElement, bool> match)
+    {
+        // The app still has the file open for writing.
+        await using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+
+        while (await reader.ReadLineAsync() is { } line)
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            using var logEvent = JsonDocument.Parse(line);
+
+            if (match(logEvent.RootElement))
+            {
+                return logEvent.RootElement.Clone();
+            }
+        }
+
+        return null;
     }
 
     protected override void Dispose(bool disposing)

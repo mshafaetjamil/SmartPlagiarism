@@ -17,6 +17,7 @@ plagiarism engine, and REST APIs for future university-portal integration.
 - QuestPDF (report generation)
 - REST API: controllers under /api/v1, API-key auth (keys stored hashed),
   per-key upload rate limit, OpenAPI + Swagger UI in Development only
+- Serilog: console + daily JSON log files (App_Data/logs); one event per request
 - xUnit + FluentAssertions for tests
 
 ## Solution structure
@@ -52,6 +53,15 @@ NuGet packages (Tesseract, PdfPig, Open XML SDK, PDFtoImage).
   size limit (25 MB) on every upload.
 - EF Core: no lazy loading; use explicit Include; AsNoTracking for read queries.
 - Every schema change gets a migration in the same commit.
+- Every list page is paged: the service returns PagedResult<T> (via
+  ToPagedResultAsync, ordered with a unique tie-breaker) and the view renders _Pager.
+- Views carry no inline <script>, style="..." or on*="..." handlers: the
+  Content-Security-Policy refuses them. Behaviour goes in wwwroot/js (data-*
+  attributes as hooks), looks in wwwroot/css.
+- Form posts are covered by the global antiforgery filter; only the REST API
+  (header API keys) and the error page opt out.
+- Input shape is validated with DataAnnotations on ViewModels/API models; services
+  re-check every rule, since both the web and the API reach them.
 
 ## Workflow rules for Claude Code
 

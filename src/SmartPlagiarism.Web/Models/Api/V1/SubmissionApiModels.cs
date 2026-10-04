@@ -15,7 +15,7 @@ public sealed class CreateSubmissionApiRequest
     public string StudentNumber { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(Submission.MaxTitleLength)]
+    [StringLength(Submission.MaxTitleLength, MinimumLength = Submission.MinTitleLength)]
     public string Title { get; set; } = string.Empty;
 
     public SubmissionType Type { get; set; } = SubmissionType.Report;

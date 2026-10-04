@@ -35,12 +35,7 @@ public class ReviewService : IReviewService
 
         var filtered = Filter(_context.Submissions.AsNoTracking().VisibleToTeacher(_context, teacherUserId), query);
 
-        var totalCount = await filtered.CountAsync(cancellationToken);
-        var page = PagedResult<ReviewSubmissionListItemDto>.ClampPage(query.Page, totalCount, ReviewSubmissionQuery.PageSize);
-
-        var items = await Sort(filtered, query.Sort, query.Descending)
-            .Skip((page - 1) * ReviewSubmissionQuery.PageSize)
-            .Take(ReviewSubmissionQuery.PageSize)
+        return await Sort(filtered, query.Sort, query.Descending)
             .Select(submission => new ReviewSubmissionListItemDto(
                 submission.Id,
                 submission.Title,
@@ -53,9 +48,7 @@ public class ReviewService : IReviewService
                 submission.Status,
                 submission.PlagiarismResult != null ? submission.PlagiarismResult.OverallSimilarityPercent : null,
                 submission.PlagiarismResult != null ? submission.PlagiarismResult.Matches.Count : 0))
-            .ToListAsync(cancellationToken);
-
-        return new PagedResult<ReviewSubmissionListItemDto>(items, page, ReviewSubmissionQuery.PageSize, totalCount);
+            .ToPagedResultAsync(query.Page, ReviewSubmissionQuery.PageSize, cancellationToken);
     }
 
     public async Task<ReviewSubmissionDetailDto?> GetSubmissionAsync(
@@ -91,6 +84,8 @@ public class ReviewService : IReviewService
             return null;
         }
 
+        // Only the extraction's summary: its full text can run to megabytes, and
+        // this page shows the method, word count and warnings, never the text.
         var files = await _context.UploadedFiles
             .AsNoTracking()
             .Where(file => file.SubmissionId == submissionId)
@@ -101,7 +96,9 @@ public class ReviewService : IReviewService
                 file.OriginalFileName,
                 file.ContentType,
                 file.SizeBytes,
-                Extraction = file.ExtractedText,
+                Extraction = file.ExtractedText == null
+                    ? null
+                    : new { file.ExtractedText.ExtractionMethod, file.ExtractedText.WordCount, file.ExtractedText.Warnings },
             })
             .ToListAsync(cancellationToken);
 

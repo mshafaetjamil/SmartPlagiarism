@@ -18,6 +18,13 @@ public static class AdminResultExtensions
             modelState.AddModelError(string.Empty, error);
         }
     }
+
+    /// <summary>
+    /// The validation errors as one sentence, for the forms that post from a
+    /// list page and report back through its status message.
+    /// </summary>
+    public static string ErrorSummary(this ModelStateDictionary modelState) =>
+        string.Join(" ", modelState.Values.SelectMany(entry => entry.Errors).Select(error => error.ErrorMessage));
 }
 
 /// <summary>Builds a query string from the non-empty values, for filter-preserving links.</summary>
@@ -51,8 +58,12 @@ public sealed record UserListViewModel(UserListFilter Filter, PagedResult<UserLi
 
 public sealed class CreateUserViewModel
 {
+    /// <summary>The length of Identity's email column.</summary>
+    private const int MaxEmailLength = 256;
+
     [Required]
     [EmailAddress]
+    [StringLength(MaxEmailLength)]
     public string Email { get; set; } = string.Empty;
 
     [Required]
@@ -182,3 +193,13 @@ public sealed class AuditLogFilter
 }
 
 public sealed record AuditLogViewModel(AuditLogFilter Filter, PagedResult<AuditLogEntryDto> Results, AuditLogFilterOptions Options);
+
+// ---------------- API keys ----------------
+
+/// <summary>The one field a new key needs: whom it is for.</summary>
+public sealed class ApiKeyFormViewModel
+{
+    [Required(ErrorMessage = "Give the key a name, such as the system that will use it.")]
+    [StringLength(ApiKey.MaxNameLength)]
+    public string Name { get; set; } = string.Empty;
+}

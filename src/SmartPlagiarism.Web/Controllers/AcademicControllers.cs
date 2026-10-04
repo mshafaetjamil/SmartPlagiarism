@@ -42,8 +42,8 @@ public abstract class AcademicControllerBase : Controller
 public class DepartmentsController(IAcademicStructureService academic) : AcademicControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken) =>
-        View(await academic.GetDepartmentsAsync(cancellationToken));
+    public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default) =>
+        View(await academic.GetDepartmentsAsync(page, cancellationToken));
 
     [HttpGet]
     public IActionResult Create() => View("Form", new DepartmentFormViewModel());
@@ -92,8 +92,8 @@ public class DepartmentsController(IAcademicStructureService academic) : Academi
 public class CoursesController(IAcademicStructureService academic) : AcademicControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken) =>
-        View(await academic.GetCoursesAsync(cancellationToken));
+    public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default) =>
+        View(await academic.GetCoursesAsync(page, cancellationToken));
 
     [HttpGet]
     public async Task<IActionResult> Create(CancellationToken cancellationToken) =>
@@ -151,8 +151,8 @@ public class CoursesController(IAcademicStructureService academic) : AcademicCon
 public class SemestersController(IAcademicStructureService academic) : AcademicControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken) =>
-        View(await academic.GetSemestersAsync(cancellationToken));
+    public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default) =>
+        View(await academic.GetSemestersAsync(page, cancellationToken));
 
     [HttpGet]
     public IActionResult Create() => View("Form", new SemesterFormViewModel());

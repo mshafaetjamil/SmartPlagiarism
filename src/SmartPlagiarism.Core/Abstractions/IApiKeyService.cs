@@ -1,3 +1,4 @@
+using SmartPlagiarism.Core.DTOs;
 using SmartPlagiarism.Core.DTOs.Admin;
 
 namespace SmartPlagiarism.Core.Abstractions;
@@ -20,7 +21,8 @@ public sealed record ApiClient(int ApiKeyId, string Name);
 /// <summary>Issues, lists, revokes and checks REST API keys.</summary>
 public interface IApiKeyService
 {
-    Task<IReadOnlyList<ApiKeyDto>> GetKeysAsync(CancellationToken cancellationToken = default);
+    /// <summary>One page of the keys, newest first.</summary>
+    Task<PagedResult<ApiKeyDto>> GetKeysAsync(int page, CancellationToken cancellationToken = default);
 
     /// <summary>Null name or too long a name is refused with a reason.</summary>
     Task<(AdminResult Result, CreatedApiKey? Key)> CreateAsync(

@@ -36,9 +36,9 @@ public class SubmissionsController : Controller
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     [HttpGet]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default)
     {
-        return View(await _submissionService.GetForStudentAsync(CurrentUserId, cancellationToken));
+        return View(await _submissionService.GetForStudentAsync(CurrentUserId, page, cancellationToken));
     }
 
     [HttpGet]

@@ -14,8 +14,8 @@ namespace SmartPlagiarism.Infrastructure.Admin;
 /// </remarks>
 public class StatisticsService : IStatisticsService
 {
-    /// <summary>Most recent failures listed; older ones are still in the audit trail.</summary>
-    public const int MaxFailedListed = 50;
+    /// <summary>Failures listed per page, newest first.</summary>
+    public const int FailedPageSize = 20;
 
     private readonly AppDbContext _context;
 
@@ -24,7 +24,7 @@ public class StatisticsService : IStatisticsService
         _context = context;
     }
 
-    public async Task<SystemStatisticsDto> GetStatisticsAsync(int months = 12, CancellationToken cancellationToken = default)
+    public async Task<SystemStatisticsDto> GetStatisticsAsync(int failedPage = 1, int months = 12, CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(months, 1);
 
@@ -41,14 +41,14 @@ public class StatisticsService : IStatisticsService
             await submissions
                 .Where(submission => submission.AnalysisStatus == AnalysisStatus.Failed)
                 .OrderByDescending(submission => submission.SubmittedAtUtc)
-                .Take(MaxFailedListed)
+                .ThenByDescending(submission => submission.Id)
                 .Select(submission => new FailedAnalysisDto(
                     submission.Id,
                     submission.Title,
                     submission.StudentProfile.User.FullName,
                     submission.SubmittedAtUtc,
                     submission.AnalysisError))
-                .ToListAsync(cancellationToken));
+                .ToPagedResultAsync(failedPage, FailedPageSize, cancellationToken));
     }
 
     /// <summary>

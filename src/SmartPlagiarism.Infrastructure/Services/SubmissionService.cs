@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartPlagiarism.Core.Abstractions;
+using SmartPlagiarism.Core.DTOs;
 using SmartPlagiarism.Core.DTOs.Analysis;
 using SmartPlagiarism.Core.DTOs.Submissions;
 using SmartPlagiarism.Core.Entities;
@@ -38,10 +39,17 @@ public class SubmissionService : ISubmissionService
         ArgumentNullException.ThrowIfNull(request);
 
         var errors = new List<string>();
+        var title = request.Title?.Trim() ?? string.Empty;
 
-        if (string.IsNullOrWhiteSpace(request.Title))
+        // Checked here as well as on the web form and the API model, since both
+        // reach this method and a title past the column's length would fail the save.
+        if (title.Length == 0)
         {
             errors.Add("A title is required.");
+        }
+        else if (title.Length is < Submission.MinTitleLength or > Submission.MaxTitleLength)
+        {
+            errors.Add($"The title must be {Submission.MinTitleLength} to {Submission.MaxTitleLength} characters long.");
         }
 
         if (request.Files.Count == 0)
@@ -99,7 +107,7 @@ public class SubmissionService : ISubmissionService
             StudentProfileId = studentProfileId!.Value,
             CourseId = request.CourseId,
             SemesterId = request.SemesterId,
-            Title = request.Title.Trim(),
+            Title = title,
             Type = request.Type,
             SubmittedAtUtc = DateTime.UtcNow,
             ApiKeyId = request.ApiKeyId,
@@ -134,14 +142,16 @@ public class SubmissionService : ISubmissionService
         return CreateSubmissionResult.Success(submission.Id);
     }
 
-    public async Task<IReadOnlyList<SubmissionListItemDto>> GetForStudentAsync(
+    public Task<PagedResult<SubmissionListItemDto>> GetForStudentAsync(
         string userId,
+        int page,
         CancellationToken cancellationToken = default)
     {
-        return await _context.Submissions
+        return _context.Submissions
             .AsNoTracking()
             .Where(submission => submission.StudentProfile.UserId == userId)
             .OrderByDescending(submission => submission.SubmittedAtUtc)
+            .ThenByDescending(submission => submission.Id)
             .Select(submission => new SubmissionListItemDto(
                 submission.Id,
                 submission.Title,
@@ -155,7 +165,7 @@ public class SubmissionService : ISubmissionService
                 submission.PlagiarismResult != null
                     ? submission.PlagiarismResult.OverallSimilarityPercent
                     : null))
-            .ToListAsync(cancellationToken);
+            .ToPagedResultAsync(page, Paging.DefaultPageSize, cancellationToken);
     }
 
     public Task<SubmissionDetailDto?> GetDetailForStudentAsync(

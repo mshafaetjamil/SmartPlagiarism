@@ -1,4 +1,4 @@
-@model IReadOnlyList<SmartPlagiarism.Core.DTOs.Admin.SemesterDto>
+@model SmartPlagiarism.Core.DTOs.PagedResult<SmartPlagiarism.Core.DTOs.Admin.SemesterDto>
 @{
     ViewData["Title"] = "Semesters";
 }
@@ -23,7 +23,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var semester in Model)
+                @foreach (var semester in Model.Items)
                 {
                     <tr>
                         <td class="fw-semibold">@semester.Name</td>
@@ -42,4 +42,6 @@
             </tbody>
         </table>
     </div>
+
+    <partial name="_Pager" model="PagerViewModel.For(nameof(SemestersController.Index), Model)" />
 </div>

@@ -89,15 +89,10 @@ public class ArchiveService : IArchiveService
                 || document.File.OriginalFileName.Contains(search));
         }
 
-        var total = await documents.CountAsync(cancellationToken);
-        var page = PagedResult<ArchiveDocumentDto>.ClampPage(query.Page, total, ArchiveQuery.PageSize);
-
-        var items = await documents
+        return await documents
             .OrderByDescending(document => document.Year)
             .ThenBy(document => document.Title)
             .ThenBy(document => document.Id)
-            .Skip((page - 1) * ArchiveQuery.PageSize)
-            .Take(ArchiveQuery.PageSize)
             .Select(document => new ArchiveDocumentDto(
                 document.Id,
                 document.Title,
@@ -109,9 +104,7 @@ public class ArchiveService : IArchiveService
                 document.File.ExtractedText == null ? null : document.File.ExtractedText.ExtractionMethod,
                 document.File.ExtractedText == null ? null : document.File.ExtractedText.WordCount,
                 _context.MatchedDocuments.Count(match => match.MatchedUploadedFileId == document.File.Id)))
-            .ToListAsync(cancellationToken);
-
-        return new PagedResult<ArchiveDocumentDto>(items, page, ArchiveQuery.PageSize, total);
+            .ToPagedResultAsync(query.Page, ArchiveQuery.PageSize, cancellationToken);
     }
 
     public async Task<AdminResult> QueueImportAsync(ArchivePackage package, string adminUserId, CancellationToken cancellationToken = default)

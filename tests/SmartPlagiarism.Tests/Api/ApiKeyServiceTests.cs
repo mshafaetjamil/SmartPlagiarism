@@ -72,7 +72,7 @@ public class ApiKeyServiceTests
         (await service.RevokeAsync(created!.Id, "admin-id")).Succeeded.Should().BeTrue();
 
         (await service.AuthenticateAsync(created.Key)).Should().BeNull();
-        (await service.GetKeysAsync()).Single().RevokedAtUtc.Should().NotBeNull();
+        (await service.GetKeysAsync(page: 1)).Items.Single().RevokedAtUtc.Should().NotBeNull();
     }
 
     [Fact]

@@ -1,5 +1,5 @@
 @using SmartPlagiarism.Web.Models.Analysis
-@model IReadOnlyList<SmartPlagiarism.Core.DTOs.Submissions.SubmissionListItemDto>
+@model SmartPlagiarism.Core.DTOs.PagedResult<SmartPlagiarism.Core.DTOs.Submissions.SubmissionListItemDto>
 @{
     ViewData["Title"] = "My submissions";
 }
@@ -12,7 +12,7 @@
 
     <partial name="_StatusMessage" />
 
-    @if (Model.Count == 0)
+    @if (Model.TotalCount == 0)
     {
         <div class="card border-0 shadow-sm">
             <div class="card-body text-center py-5">
@@ -40,7 +40,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var submission in Model)
+                        @foreach (var submission in Model.Items)
                         {
                             <tr>
                                 <td>
@@ -73,8 +73,9 @@
 
         var poller = AnalysisPollerViewModel.For(
             Url.Action(nameof(SubmissionsController.Status), "Submissions")!,
-            Model.Select(submission => (submission.Id, submission.AnalysisStatus)));
+            Model.Items.Select(submission => (submission.Id, submission.AnalysisStatus)));
 
+        <partial name="_Pager" model="PagerViewModel.For(nameof(SubmissionsController.Index), Model)" />
         <partial name="_AnalysisPoller" model="poller" />
     }
 </div>

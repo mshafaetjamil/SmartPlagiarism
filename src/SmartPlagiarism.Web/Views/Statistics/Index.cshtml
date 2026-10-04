@@ -4,9 +4,10 @@
 @{
     ViewData["Title"] = "Statistics";
 
-    // Bars are scaled to the largest value in their own chart.
+    // A bar's width, as a percentage of the largest value in its own chart;
+    // site.js applies it, since the Content-Security-Policy allows no inline styles.
     string Width(int value, int max) =>
-        (max == 0 ? 0 : value * 100.0 / max).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+        (max == 0 ? 0 : value * 100.0 / max).ToString("0.#", CultureInfo.InvariantCulture);
 
     var busiestMonth = Model.SubmissionsByMonth.Count == 0 ? 0 : Model.SubmissionsByMonth.Max(month => month.Count);
     var mostFiles = Model.ExtractionMethods.Count == 0 ? 0 : Model.ExtractionMethods.Max(method => method.FileCount);
@@ -55,14 +56,14 @@
                             @foreach (var month in Model.SubmissionsByMonth)
                             {
                                 <tr>
-                                    <th scope="row" class="fw-normal small text-nowrap" style="width: 5.5rem;">
+                                    <th scope="row" class="fw-normal small text-nowrap col-w-5-5">
                                         @(new DateTime(month.Year, month.Month, 1).ToString("MMM yyyy", CultureInfo.InvariantCulture))
                                     </th>
                                     <td>
-                                        <div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill bg-primary" style="width: @Width(month.Count, busiestMonth)"></div></div>
+                                        <div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill bg-primary" data-bar-width="@Width(month.Count, busiestMonth)"></div></div>
                                     </td>
-                                    <td class="text-end small" style="width: 3rem;">@month.Count</td>
-                                    <td class="text-end" style="width: 5.5rem;">
+                                    <td class="text-end small col-w-3">@month.Count</td>
+                                    <td class="text-end col-w-5-5">
                                         @StatusBadge.Similarity(month.AverageSimilarityPercent is { } monthly ? (decimal)Math.Round(monthly, 2) : null)
                                     </td>
                                 </tr>
@@ -88,9 +89,9 @@
                                     _ => ("Above 50%", "bg-danger"),
                                 };
                                 <tr>
-                                    <th scope="row" class="fw-normal small text-nowrap" style="width: 6rem;">@label</th>
-                                    <td><div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill @colour" style="width: @Width(band.Count, largestBand)"></div></div></td>
-                                    <td class="text-end small" style="width: 3rem;">@band.Count</td>
+                                    <th scope="row" class="fw-normal small text-nowrap col-w-6">@label</th>
+                                    <td><div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill @colour" data-bar-width="@Width(band.Count, largestBand)"></div></div></td>
+                                    <td class="text-end small col-w-3">@band.Count</td>
                                 </tr>
                             }
                         </tbody>
@@ -106,9 +107,9 @@
                             @foreach (var method in Model.ExtractionMethods)
                             {
                                 <tr>
-                                    <th scope="row" class="fw-normal small text-nowrap" style="width: 10rem;">@StatusBadge.Label(method.Method)</th>
-                                    <td><div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill bg-info" style="width: @Width(method.FileCount, mostFiles)"></div></div></td>
-                                    <td class="text-end small" style="width: 3rem;">@method.FileCount</td>
+                                    <th scope="row" class="fw-normal small text-nowrap col-w-10">@StatusBadge.Label(method.Method)</th>
+                                    <td><div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill bg-info" data-bar-width="@Width(method.FileCount, mostFiles)"></div></div></td>
+                                    <td class="text-end small col-w-3">@method.FileCount</td>
                                 </tr>
                             }
                         </tbody>
@@ -120,7 +121,7 @@
 
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-transparent"><h2 class="h6 mb-0">Failed analyses</h2></div>
-        @if (Model.FailedAnalyses.Count == 0)
+        @if (Model.FailedAnalyses.TotalCount == 0)
         {
             <div class="card-body text-body-secondary">No analysis has failed.</div>
         }
@@ -138,7 +139,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var failed in Model.FailedAnalyses)
+                        @foreach (var failed in Model.FailedAnalyses.Items)
                         {
                             <tr>
                                 <td>#@failed.SubmissionId &middot; @failed.Title</td>
@@ -157,4 +158,6 @@
             </div>
         }
     </div>
+
+    <partial name="_Pager" model="PagerViewModel.For(nameof(StatisticsController.Index), Model.FailedAnalyses)" />
 </div>

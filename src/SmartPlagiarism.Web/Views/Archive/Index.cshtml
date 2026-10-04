@@ -20,7 +20,7 @@
 <div class="container py-4">
     <div class="d-flex flex-wrap justify-content-between align-items-baseline mb-3 gap-2">
         <h1 class="h3 mb-0">Archive</h1>
-        <span class="text-body-secondary">@Model.Overview.TotalDocuments.ToString("N0") documents from past years</span>
+        <span class="text-body-secondary">@Model.Overview.TotalDocuments.ToString("N0") @(Model.Overview.TotalDocuments == 1 ? "document" : "documents") from past years</span>
     </div>
 
     <p class="text-body-secondary">
@@ -98,15 +98,15 @@
                             @foreach (var year in years)
                             {
                                 <tr>
-                                    <th scope="row" class="fw-normal small" style="width: 3.5rem;">
+                                    <th scope="row" class="fw-normal small col-w-3-5">
                                         <a asp-action="Index" asp-route-Year="@year.Year">@year.Year</a>
                                     </th>
                                     <td>
                                         <div class="stat-bar" aria-hidden="true">
-                                            <div class="stat-bar-fill bg-primary" style="width: @((year.Documents * 100 / mostInAYear).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                                            <div class="stat-bar-fill bg-primary" data-bar-width="@((year.Documents * 100 / mostInAYear).ToString(System.Globalization.CultureInfo.InvariantCulture))"></div>
                                         </div>
                                     </td>
-                                    <td class="text-end small" style="width: 4rem;">@year.Documents.ToString("N0")</td>
+                                    <td class="text-end small col-w-4">@year.Documents.ToString("N0")</td>
                                 </tr>
                             }
                         </tbody>
@@ -148,9 +148,9 @@
                             </div>
                             @if (import.Status == ArchiveImportStatus.Processing && import.TotalFiles > 0)
                             {
-                                <div class="progress mt-2" role="progressbar" aria-label="Import progress"
-                                     aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100" style="height: 0.5rem;">
-                                    <div class="progress-bar" style="width: @percent%"></div>
+                                <div class="progress progress-thin mt-2" role="progressbar" aria-label="Import progress"
+                                     aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar" data-bar-width="@percent"></div>
                                 </div>
                             }
                             @if (import.Messages.Count > 0)

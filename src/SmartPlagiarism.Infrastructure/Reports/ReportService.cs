@@ -89,11 +89,19 @@ public class ReportService : IReportService
             })
             .SingleAsync(cancellationToken);
 
+        // The extraction's summary only; the texts the excerpts quote are read
+        // separately, and only for the passages quoted.
         var files = await _context.UploadedFiles
             .AsNoTracking()
             .Where(file => file.SubmissionId == submissionId)
             .OrderBy(file => file.OriginalFileName)
-            .Select(file => new { file.OriginalFileName, Extraction = file.ExtractedText })
+            .Select(file => new
+            {
+                file.OriginalFileName,
+                Extraction = file.ExtractedText == null
+                    ? null
+                    : new { file.ExtractedText.ExtractionMethod, file.ExtractedText.WordCount, file.ExtractedText.Warnings },
+            })
             .ToListAsync(cancellationToken);
 
         var result = await _context.PlagiarismResults

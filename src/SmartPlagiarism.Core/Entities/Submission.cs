@@ -15,6 +15,8 @@ namespace SmartPlagiarism.Core.Entities;
 /// </summary>
 public class Submission
 {
+    public const int MinTitleLength = 3;
+
     public const int MaxTitleLength = 250;
 
     public int Id { get; set; }

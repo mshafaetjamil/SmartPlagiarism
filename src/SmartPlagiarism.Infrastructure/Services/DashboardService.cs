@@ -46,6 +46,9 @@ public class DashboardService : IDashboardService
             .AsNoTracking()
             .Where(submission => submission.StudentProfileId == studentProfileId);
 
+        // One group - every submission shares the key - so all five counts come
+        // back in a single query. Single, not First: there is at most one group,
+        // and First without an OrderBy has EF warn on every dashboard load.
         var counts = await submissions
             .GroupBy(_ => 1)
             .Select(group => new
@@ -58,7 +61,7 @@ public class DashboardService : IDashboardService
                 Approved = group.Count(submission => submission.Status == SubmissionStatus.Approved),
                 Rejected = group.Count(submission => submission.Status == SubmissionStatus.Rejected),
             })
-            .FirstOrDefaultAsync(cancellationToken);
+            .SingleOrDefaultAsync(cancellationToken);
 
         var latestSubmissions = await submissions
             .OrderByDescending(submission => submission.SubmittedAtUtc)

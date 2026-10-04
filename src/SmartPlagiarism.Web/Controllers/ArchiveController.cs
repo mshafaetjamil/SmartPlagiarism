@@ -42,9 +42,11 @@ public class ArchiveController : Controller
     [RequestFormLimits(MultipartBodyLengthLimit = MaxImportRequestBytes)]
     public async Task<IActionResult> Import(ArchiveImportForm form, CancellationToken cancellationToken)
     {
-        if (form.Package is null)
+        // The year and department are checked by the service, against the
+        // archive's range and the departments that exist.
+        if (!ModelState.IsValid || form.Package is null)
         {
-            TempData["StatusMessage"] = "Choose a ZIP file to import.";
+            TempData["StatusMessage"] = ModelState.ErrorSummary();
             return RedirectToAction(nameof(Index));
         }
 

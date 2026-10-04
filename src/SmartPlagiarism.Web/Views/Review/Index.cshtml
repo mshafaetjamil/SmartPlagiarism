@@ -7,6 +7,12 @@
     var filter = Model.Filter;
     var results = Model.Results;
 
+    // This filter form is checked on the server only - the page loads no
+    // client-side validation script. With client validation on, an empty
+    // validation summary still renders a hidden list item for that script to
+    // fill, styled display:none inline, which the Content-Security-Policy refuses.
+    ViewContext.ClientValidationEnabled = false;
+
     string SortIndicator(ReviewSortField field) =>
         filter.Sort != field ? string.Empty : filter.Desc ? " ▾" : " ▴";
 

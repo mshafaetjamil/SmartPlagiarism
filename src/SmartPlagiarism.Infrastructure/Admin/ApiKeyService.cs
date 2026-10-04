@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.Auditing;
+using SmartPlagiarism.Core.DTOs;
 using SmartPlagiarism.Core.DTOs.Admin;
 using SmartPlagiarism.Core.Entities;
 using SmartPlagiarism.Infrastructure.Data;
@@ -36,12 +37,13 @@ public class ApiKeyService : IApiKeyService
         _audit = audit;
     }
 
-    public async Task<IReadOnlyList<ApiKeyDto>> GetKeysAsync(CancellationToken cancellationToken = default) =>
-        await _context.ApiKeys
+    public Task<PagedResult<ApiKeyDto>> GetKeysAsync(int page, CancellationToken cancellationToken = default) =>
+        _context.ApiKeys
             .AsNoTracking()
             .OrderByDescending(key => key.CreatedAtUtc)
+            .ThenByDescending(key => key.Id)
             .Select(key => new ApiKeyDto(key.Id, key.Name, key.Prefix, key.CreatedAtUtc, key.LastUsedAtUtc, key.RevokedAtUtc))
-            .ToListAsync(cancellationToken);
+            .ToPagedResultAsync(page, Paging.DefaultPageSize, cancellationToken);
 
     public async Task<(AdminResult Result, CreatedApiKey? Key)> CreateAsync(
         string name,

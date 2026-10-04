@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using SmartPlagiarism.Core.DTOs.Submissions;
+using SmartPlagiarism.Core.Entities;
 using SmartPlagiarism.Core.Enums;
 
 namespace SmartPlagiarism.Web.Models.Submissions;
@@ -7,7 +8,7 @@ namespace SmartPlagiarism.Web.Models.Submissions;
 public class CreateSubmissionViewModel
 {
     [Required]
-    [StringLength(250, MinimumLength = 3)]
+    [StringLength(Submission.MaxTitleLength, MinimumLength = Submission.MinTitleLength)]
     [Display(Name = "Title")]
     public string Title { get; set; } = string.Empty;
 

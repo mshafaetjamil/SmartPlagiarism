@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using SmartPlagiarism.Core.DTOs;
 using SmartPlagiarism.Core.DTOs.Admin;
 using SmartPlagiarism.Core.DTOs.Archive;
@@ -22,6 +23,7 @@ public sealed class ArchiveFilter
 
 public sealed class ArchiveImportForm
 {
+    [Required(ErrorMessage = "Choose a ZIP file to import.")]
     public IFormFile? Package { get; set; }
 
     public int? DefaultYear { get; set; }

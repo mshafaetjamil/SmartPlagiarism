@@ -85,3 +85,20 @@ document.addEventListener('submit', (event) => {
     select.addEventListener('change', update);
     update();
 })();
+
+// Bar widths (Views/Statistics, Views/Archive): [data-bar-width] holds a
+// percentage. Set here because the Content-Security-Policy allows no style
+// attributes in the markup; styles set from a script file are allowed.
+for (const bar of document.querySelectorAll('[data-bar-width]')) {
+    bar.style.width = `${bar.dataset.barWidth}%`;
+}
+
+// A field whose whole value is meant to be copied - a new API key - selects
+// itself when clicked.
+document.addEventListener('click', (event) => {
+    const field = event.target.closest?.('[data-select-on-click]');
+
+    if (field) {
+        field.select();
+    }
+});

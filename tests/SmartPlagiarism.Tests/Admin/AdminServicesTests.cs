@@ -213,10 +213,10 @@ public sealed class AdminServicesTests : IAsyncLifetime
         (await Academic.CreateCourseAsync(new CourseInput(department, "cse-500", "Duplicate"), Admin)).Succeeded.Should().BeFalse();
         (await Academic.CreateCourseAsync(new CourseInput(999, "CSE-501", "Nowhere"), Admin)).Errors.Should().Contain("Choose a department.");
 
-        var used = (await Academic.GetCoursesAsync()).Single(course => course.SubmissionCount > 0);
+        var used = (await Academic.GetCoursesAsync(page: 1)).Items.Single(course => course.SubmissionCount > 0);
         (await Academic.DeleteCourseAsync(used.Id, Admin)).Succeeded.Should().BeFalse();
 
-        var unused = (await Academic.GetCoursesAsync()).Single(course => course.Code == "CSE-500");
+        var unused = (await Academic.GetCoursesAsync(page: 1)).Items.Single(course => course.Code == "CSE-500");
         (await Academic.UpdateCourseAsync(unused.Id, new CourseInput(department, "CSE-500", "Thesis II"), Admin)).Succeeded.Should().BeTrue();
         (await Academic.GetCourseAsync(unused.Id))!.Title.Should().Be("Thesis II");
         (await Academic.DeleteCourseAsync(unused.Id, Admin)).Succeeded.Should().BeTrue();
@@ -234,7 +234,7 @@ public sealed class AdminServicesTests : IAsyncLifetime
         (await Academic.CreateSemesterAsync(
             new SemesterInput("Spring 2027", new DateTime(2027, 1, 1), new DateTime(2027, 6, 1)), Admin)).Succeeded.Should().BeTrue();
 
-        var spring = (await Academic.GetSemestersAsync()).Single(semester => semester.Name == "Spring 2027");
+        var spring = (await Academic.GetSemestersAsync(page: 1)).Items.Single(semester => semester.Name == "Spring 2027");
         spring.StartDateUtc.Should().Be(new DateTime(2027, 1, 1));
         spring.EndDateUtc.Should().Be(new DateTime(2027, 6, 1));
     }
@@ -266,7 +266,7 @@ public sealed class AdminServicesTests : IAsyncLifetime
         statistics.ExtractionMethods.Single(method => method.Method == ExtractionMethod.Native).FileCount.Should().Be(3);
         statistics.SimilarityBands.Single(band => band.Band == SimilarityBand.Low).Count.Should().Be(1);
         statistics.SimilarityBands.Single(band => band.Band == SimilarityBand.High).Count.Should().Be(1);
-        statistics.FailedAnalyses.Should().ContainSingle().Which.SubmissionId.Should().Be(empty);
+        statistics.FailedAnalyses.Items.Should().ContainSingle().Which.SubmissionId.Should().Be(empty);
     }
 
     // ---------------- audit log ----------------

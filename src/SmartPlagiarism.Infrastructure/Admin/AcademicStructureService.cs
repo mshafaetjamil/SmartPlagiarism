@@ -3,6 +3,7 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.Auditing;
+using SmartPlagiarism.Core.DTOs;
 using SmartPlagiarism.Core.DTOs.Admin;
 using SmartPlagiarism.Core.Entities;
 using SmartPlagiarism.Infrastructure.Data;
@@ -34,6 +35,14 @@ public class AcademicStructureService : IAcademicStructureService
             .OrderBy(department => department.Code)
             .Select(department => new DepartmentDto(department.Id, department.Code, department.Name, department.Courses.Count))
             .ToListAsync(cancellationToken);
+
+    public Task<PagedResult<DepartmentDto>> GetDepartmentsAsync(int page, CancellationToken cancellationToken = default) =>
+        _context.Departments
+            .AsNoTracking()
+            .OrderBy(department => department.Code)
+            .ThenBy(department => department.Id)
+            .Select(department => new DepartmentDto(department.Id, department.Code, department.Name, department.Courses.Count))
+            .ToPagedResultAsync(page, Paging.DefaultPageSize, cancellationToken);
 
     public async Task<DepartmentDto?> GetDepartmentAsync(int id, CancellationToken cancellationToken = default) =>
         await _context.Departments
@@ -117,13 +126,14 @@ public class AcademicStructureService : IAcademicStructureService
 
     // ---------------- courses ----------------
 
-    public async Task<IReadOnlyList<CourseDto>> GetCoursesAsync(CancellationToken cancellationToken = default) =>
-        await _context.Courses
+    public Task<PagedResult<CourseDto>> GetCoursesAsync(int page, CancellationToken cancellationToken = default) =>
+        _context.Courses
             .AsNoTracking()
             .OrderBy(course => course.Department.Code)
             .ThenBy(course => course.Code)
+            .ThenBy(course => course.Id)
             .Select(CourseProjection)
-            .ToListAsync(cancellationToken);
+            .ToPagedResultAsync(page, Paging.DefaultPageSize, cancellationToken);
 
     public async Task<CourseDto?> GetCourseAsync(int id, CancellationToken cancellationToken = default) =>
         await _context.Courses
@@ -216,12 +226,13 @@ public class AcademicStructureService : IAcademicStructureService
 
     // ---------------- semesters ----------------
 
-    public async Task<IReadOnlyList<SemesterDto>> GetSemestersAsync(CancellationToken cancellationToken = default) =>
-        await _context.Semesters
+    public Task<PagedResult<SemesterDto>> GetSemestersAsync(int page, CancellationToken cancellationToken = default) =>
+        _context.Semesters
             .AsNoTracking()
             .OrderByDescending(semester => semester.StartDateUtc)
+            .ThenByDescending(semester => semester.Id)
             .Select(SemesterProjection)
-            .ToListAsync(cancellationToken);
+            .ToPagedResultAsync(page, Paging.DefaultPageSize, cancellationToken);
 
     public async Task<SemesterDto?> GetSemesterAsync(int id, CancellationToken cancellationToken = default) =>
         await _context.Semesters

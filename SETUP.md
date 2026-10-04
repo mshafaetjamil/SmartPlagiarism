@@ -360,4 +360,6 @@ empty database (with fresh demo accounts) and none of machine A's uploaded files
 | Port 1433 already in use | Another SQL Server is running. Stop it, or map a different port and set a matching user secret. |
 | `Failed to determine the https port for redirect` | Harmless — you started the HTTP-only profile. Use `--launch-profile https` if you want HTTPS. |
 | OCR warnings in the log | Expected unless you completed Part 5. Extraction of normal documents is unaffected. |
+| An error page shows a **Reference** | It is the request's trace id. Search the log files for it: `grep <reference> src/SmartPlagiarism.Web/App_Data/logs/*.json`. |
+| Where are the logs? | The console, and `src/SmartPlagiarism.Web/App_Data/logs/` (one JSON file per day, kept 30 days). Levels are under `Serilog` in `appsettings.json`. |
 | Every file shows as modified right after cloning | An old clone made before `.gitattributes` existed. Re-clone, or run `git add --renormalize .`. |

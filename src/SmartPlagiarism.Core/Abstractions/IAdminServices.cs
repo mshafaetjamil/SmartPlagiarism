@@ -25,7 +25,11 @@ public interface IUserAdministrationService
 /// <summary>Departments, courses and semesters. Anything in use cannot be deleted.</summary>
 public interface IAcademicStructureService
 {
+    /// <summary>Every department, for choosing one from a dropdown.</summary>
     Task<IReadOnlyList<DepartmentDto>> GetDepartmentsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>One page of the department list.</summary>
+    Task<PagedResult<DepartmentDto>> GetDepartmentsAsync(int page, CancellationToken cancellationToken = default);
 
     Task<DepartmentDto?> GetDepartmentAsync(int id, CancellationToken cancellationToken = default);
 
@@ -35,7 +39,7 @@ public interface IAcademicStructureService
 
     Task<AdminResult> DeleteDepartmentAsync(int id, string adminUserId, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<CourseDto>> GetCoursesAsync(CancellationToken cancellationToken = default);
+    Task<PagedResult<CourseDto>> GetCoursesAsync(int page, CancellationToken cancellationToken = default);
 
     Task<CourseDto?> GetCourseAsync(int id, CancellationToken cancellationToken = default);
 
@@ -45,7 +49,7 @@ public interface IAcademicStructureService
 
     Task<AdminResult> DeleteCourseAsync(int id, string adminUserId, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<SemesterDto>> GetSemestersAsync(CancellationToken cancellationToken = default);
+    Task<PagedResult<SemesterDto>> GetSemestersAsync(int page, CancellationToken cancellationToken = default);
 
     Task<SemesterDto?> GetSemesterAsync(int id, CancellationToken cancellationToken = default);
 
@@ -59,8 +63,9 @@ public interface IAcademicStructureService
 /// <summary>The figures on the admin statistics page.</summary>
 public interface IStatisticsService
 {
+    /// <param name="failedPage">The page of the failed-analyses list to include.</param>
     /// <param name="months">How many months back the submissions-over-time chart goes.</param>
-    Task<SystemStatisticsDto> GetStatisticsAsync(int months = 12, CancellationToken cancellationToken = default);
+    Task<SystemStatisticsDto> GetStatisticsAsync(int failedPage = 1, int months = 12, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Reads the audit trail that <see cref="IAuditService"/> writes.</summary>

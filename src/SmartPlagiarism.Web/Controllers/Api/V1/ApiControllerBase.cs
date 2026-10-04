@@ -15,8 +15,14 @@ namespace SmartPlagiarism.Web.Controllers.Api.V1;
 /// No blanket <c>[Produces("application/json")]</c>: it would also stamp error
 /// responses, which should go out as <c>application/problem+json</c>. JSON is the
 /// default for everything else anyway.
+///
+/// Exempt from the antiforgery check every web form gets. CSRF works by
+/// borrowing the cookie a browser sends on its own; these endpoints ignore
+/// cookies and accept only an API key in a header, which a forged cross-site
+/// request cannot set.
 /// </summary>
 [ApiController]
+[IgnoreAntiforgeryToken]
 public abstract class ApiControllerBase : ControllerBase
 {
 }

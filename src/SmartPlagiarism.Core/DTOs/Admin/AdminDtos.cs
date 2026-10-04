@@ -70,7 +70,7 @@ public sealed record SystemStatisticsDto(
     IReadOnlyList<MonthlySubmissionsDto> SubmissionsByMonth,
     IReadOnlyList<ExtractionMethodCountDto> ExtractionMethods,
     IReadOnlyList<SimilarityBandCountDto> SimilarityBands,
-    IReadOnlyList<FailedAnalysisDto> FailedAnalyses);
+    PagedResult<FailedAnalysisDto> FailedAnalyses);
 
 public sealed record MonthlySubmissionsDto(int Year, int Month, int Count, double? AverageSimilarityPercent);
 

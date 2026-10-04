@@ -1,3 +1,4 @@
+using SmartPlagiarism.Core.DTOs;
 using SmartPlagiarism.Core.DTOs.Analysis;
 using SmartPlagiarism.Core.DTOs.Submissions;
 
@@ -19,9 +20,10 @@ public interface ISubmissionService
         CreateSubmissionRequest request,
         CancellationToken cancellationToken = default);
 
-    /// <summary>A student's own submissions, newest first.</summary>
-    Task<IReadOnlyList<SubmissionListItemDto>> GetForStudentAsync(
+    /// <summary>One page of a student's own submissions, newest first.</summary>
+    Task<PagedResult<SubmissionListItemDto>> GetForStudentAsync(
         string userId,
+        int page,
         CancellationToken cancellationToken = default);
 
     /// <summary>

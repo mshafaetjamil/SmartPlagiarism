@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.Identity;
+using SmartPlagiarism.Web.Models.Admin;
 
 namespace SmartPlagiarism.Web.Controllers;
 
@@ -20,8 +21,8 @@ public class ApiKeysController : Controller
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     [HttpGet]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken) =>
-        View(await _apiKeys.GetKeysAsync(cancellationToken));
+    public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default) =>
+        View(await _apiKeys.GetKeysAsync(page, cancellationToken));
 
     /// <summary>
     /// Shows the new key on the response itself rather than redirecting: the key
@@ -30,9 +31,15 @@ public class ApiKeysController : Controller
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(string name, CancellationToken cancellationToken)
+    public async Task<IActionResult> Create(ApiKeyFormViewModel model, CancellationToken cancellationToken)
     {
-        var (result, key) = await _apiKeys.CreateAsync(name, CurrentUserId, cancellationToken);
+        if (!ModelState.IsValid)
+        {
+            TempData["StatusMessage"] = ModelState.ErrorSummary();
+            return RedirectToAction(nameof(Index));
+        }
+
+        var (result, key) = await _apiKeys.CreateAsync(model.Name, CurrentUserId, cancellationToken);
 
         if (!result.Succeeded)
         {

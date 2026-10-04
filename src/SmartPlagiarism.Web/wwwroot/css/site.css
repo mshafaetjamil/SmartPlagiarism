@@ -78,3 +78,45 @@ html {
   height: 100%;
   border-radius: 0.3rem;
 }
+
+/* Sizes the views would otherwise set in style attributes, which the
+   Content-Security-Policy (style-src 'self') does not allow. */
+.mw-640 {
+  max-width: 640px;
+}
+
+.mw-720 {
+  max-width: 720px;
+}
+
+.mw-760 {
+  max-width: 760px;
+}
+
+.col-w-3 {
+  width: 3rem;
+}
+
+.col-w-3-5 {
+  width: 3.5rem;
+}
+
+.col-w-4 {
+  width: 4rem;
+}
+
+.col-w-5-5 {
+  width: 5.5rem;
+}
+
+.col-w-6 {
+  width: 6rem;
+}
+
+.col-w-10 {
+  width: 10rem;
+}
+
+.progress-thin {
+  height: 0.5rem;
+}
