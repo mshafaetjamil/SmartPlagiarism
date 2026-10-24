@@ -25,6 +25,13 @@ public class OcrOptions
     /// </summary>
     public string TesseractExecutable { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Time Tesseract may spend on one image - a page or a picture. A 300 DPI
+    /// Bangla page takes a few seconds; anything this slow is stuck, and one stuck
+    /// image must not hold up every other document waiting for OCR.
+    /// </summary>
+    public TimeSpan PageTimeout { get; set; } = TimeSpan.FromMinutes(2);
+
     /// <summary>The individual language codes in <see cref="Language"/>.</summary>
     public IReadOnlyList<string> Languages =>
         Language.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

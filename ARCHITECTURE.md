@@ -169,7 +169,7 @@ unreadable file look perfectly original.
 | --- | --- |
 | Who sees what | Three roles (Admin, Teacher, Student) plus one shared access rule: a student sees only their own submissions, a teacher only their department's, an API key only the submissions it created. Anything else returns 404, never 403, so nobody can probe which ids exist. |
 | Student privacy | A student's report never names or quotes another student. It says "Another student's submission (CSE402)". |
-| Uploads | Extension whitelist, file-signature (magic byte) check, 25 MB per file, 5 files. Files are stored outside the web root under their SHA-256 hash; the client's file name is kept only for display. |
+| Uploads | Extension whitelist, file-signature (magic byte) check, 25 MB per file, 5 files. Files are stored outside the web root under their SHA-256 hash; the client's file name is kept only for display. Each student may have 3 submissions waiting for analysis and make 10 a day, counted from the database for the web form and the API alike. |
 | Forged requests (CSRF) | A global antiforgery filter covers every form post, and a test checks that every POST action is covered. The REST API is exempt: it accepts only an API key in a header, which a forged request cannot set. |
 | Browser hardening | A strict Content-Security-Policy (no inline scripts or styles anywhere), `nosniff`, no framing, referrer and permissions policies, HTTPS redirection with HSTS, and no `Server` header. |
 | API keys | 256 bits of randomness, stored only as a SHA-256 hash, compared in constant time, revocable, rate-limited per key. |
@@ -190,7 +190,11 @@ unreadable file look perfectly original.
   re-analysed at the next start.
 - **Resilience.** Two analyses run at once, so a long OCR job does not hold up
   ordinary submissions. Per-document limits on pages, unpacked size, image size
-  and OCR time stop a hostile file from exhausting the server.
+  and OCR time stop a hostile file from exhausting the server. A picture is
+  measured from its header before OCR decodes it, and one over 40 megapixels is
+  skipped with a warning. OCR gives up on an image after two minutes: the
+  command-line program is stopped, and the in-process engine, which cannot be
+  interrupted, is set aside and replaced so other documents carry on.
 
 ---
 

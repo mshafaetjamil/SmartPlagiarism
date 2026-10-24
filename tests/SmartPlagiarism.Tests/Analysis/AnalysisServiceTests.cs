@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.Auditing;
 using SmartPlagiarism.Core.DTOs;
@@ -28,7 +29,7 @@ public class AnalysisServiceTests
     {
         var course = await context.Courses.SingleAsync();
         var semester = await context.Semesters.SingleAsync();
-        var service = new SubmissionService(context, harness.Storage, new FileUploadValidator(), harness.Queue, new SubmissionAccessService(context));
+        var service = new SubmissionService(context, harness.Storage, new FileUploadValidator(), harness.Queue, new SubmissionAccessService(context), Options.Create(new SubmissionOptions()));
 
         var bytes = Docx();
         await using var stream = new MemoryStream(bytes);
@@ -50,7 +51,7 @@ public class AnalysisServiceTests
 
         var course = await context.Courses.SingleAsync();
         var semester = await context.Semesters.SingleAsync();
-        var service = new SubmissionService(context, harness.Storage, new FileUploadValidator(), harness.Queue, new SubmissionAccessService(context));
+        var service = new SubmissionService(context, harness.Storage, new FileUploadValidator(), harness.Queue, new SubmissionAccessService(context), Options.Create(new SubmissionOptions()));
 
         var bytes = Docx();
         await using var stream = new MemoryStream(bytes);
@@ -109,7 +110,7 @@ public class AnalysisServiceTests
         await harness.SubmitAsOtherStudentAsync(("theirs.docx", Docx()));
 
         await using var context = harness.NewContext();
-        var service = new SubmissionService(context, harness.Storage, new FileUploadValidator(), harness.Queue, new SubmissionAccessService(context));
+        var service = new SubmissionService(context, harness.Storage, new FileUploadValidator(), harness.Queue, new SubmissionAccessService(context), Options.Create(new SubmissionOptions()));
 
         var first = await service.GetForStudentAsync(harness.StudentUserId, page: 1);
         var second = await service.GetForStudentAsync(harness.StudentUserId, page: 2);
@@ -179,7 +180,7 @@ public class AnalysisServiceTests
         var theirs = await harness.SubmitAsOtherStudentAsync(("theirs.docx", Docx()));
 
         await using var context = harness.NewContext();
-        var service = new SubmissionService(context, harness.Storage, new FileUploadValidator(), harness.Queue, new SubmissionAccessService(context));
+        var service = new SubmissionService(context, harness.Storage, new FileUploadValidator(), harness.Queue, new SubmissionAccessService(context), Options.Create(new SubmissionOptions()));
 
         var statuses = await service.GetAnalysisStatusesForStudentAsync(harness.StudentUserId, [mine, theirs]);
 

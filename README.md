@@ -193,9 +193,12 @@ grep <reference> src/SmartPlagiarism.Web/App_Data/logs/*.json
 | `ConnectionStrings:DefaultConnection` | in `appsettings.Development.json` | SQL Server connection |
 | `FileStorage:RootPath` | `App_Data/uploads` | Where uploaded files are kept |
 | `Ocr:Enabled`, `Ocr:Language` | `true`, `ben+eng` | OCR for scanned or damaged pages |
+| `Ocr:PageTimeout` | `00:02:00` | Time OCR may spend on one page or picture before giving up on it |
 | `Analysis:Workers` | `2` | Submissions analysed at once |
 | `Api:UploadsPerMinute` | `10` | Upload limit per API key |
-| `Extraction:*` | see `ExtractionLimits` | Page, size and OCR-time limits per document |
+| `Submissions:MaxPendingPerStudent` | `3` | Submissions one student may have waiting for analysis at once |
+| `Submissions:MaxPerStudentPerDay` | `10` | Submissions one student may make in 24 hours |
+| `Extraction:*` | see `ExtractionLimits` | Page, size, picture (`MaxPicturePixels`, 40 megapixels) and OCR-time limits per document |
 
 ---
 

@@ -1,9 +1,12 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SmartPlagiarism.Core.Abstractions;
 using SmartPlagiarism.Core.DTOs;
 using SmartPlagiarism.Core.DTOs.Analysis;
 using SmartPlagiarism.Core.DTOs.Submissions;
 using SmartPlagiarism.Core.Entities;
+using SmartPlagiarism.Core.Enums;
 using SmartPlagiarism.Core.Files;
 using SmartPlagiarism.Infrastructure.Data;
 
@@ -17,19 +20,22 @@ public class SubmissionService : ISubmissionService
     private readonly IFileUploadValidator _validator;
     private readonly IAnalysisQueue _analysisQueue;
     private readonly ISubmissionAccessService _access;
+    private readonly SubmissionOptions _limits;
 
     public SubmissionService(
         AppDbContext context,
         IFileStorageService fileStorage,
         IFileUploadValidator validator,
         IAnalysisQueue analysisQueue,
-        ISubmissionAccessService access)
+        ISubmissionAccessService access,
+        IOptions<SubmissionOptions> limits)
     {
         _context = context;
         _fileStorage = fileStorage;
         _validator = validator;
         _analysisQueue = analysisQueue;
         _access = access;
+        _limits = limits.Value;
     }
 
     public async Task<CreateSubmissionResult> CreateAsync(
@@ -70,6 +76,10 @@ public class SubmissionService : ISubmissionService
         if (studentProfileId is null)
         {
             errors.Add("Your account is not linked to a student profile yet. Contact an administrator.");
+        }
+        else if (await SubmissionLimitReachedAsync(studentProfileId.Value, cancellationToken) is { } limitReached)
+        {
+            errors.Add(limitReached);
         }
 
         if (!await _context.Courses.AnyAsync(course => course.Id == request.CourseId, cancellationToken))
@@ -140,6 +150,55 @@ public class SubmissionService : ISubmissionService
         await _analysisQueue.EnqueueAsync(submission.Id, cancellationToken);
 
         return CreateSubmissionResult.Success(submission.Id);
+    }
+
+    /// <summary>
+    /// Why the student may not submit again yet, or null when they may. Counted
+    /// from the database, so the limits survive a restart and cover the web form
+    /// and the REST API alike. Two uploads at the very same moment can both pass;
+    /// one over the limit is not worth a lock.
+    /// </summary>
+    private async Task<string?> SubmissionLimitReachedAsync(int studentProfileId, CancellationToken cancellationToken)
+    {
+        var submissions = _context.Submissions
+            .AsNoTracking()
+            .Where(submission => submission.StudentProfileId == studentProfileId);
+
+        var pending = await submissions.CountAsync(
+            submission => submission.AnalysisStatus == AnalysisStatus.Queued || submission.AnalysisStatus == AnalysisStatus.Processing,
+            cancellationToken);
+
+        if (pending >= _limits.MaxPendingPerStudent)
+        {
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"You already have {pending} submissions waiting to be analysed, the most allowed at once. "
+                + $"Submit again once one of them has finished.");
+        }
+
+        var now = DateTime.UtcNow;
+        var dayAgo = now.AddDays(-1);
+        var lastDay = await submissions
+            .Where(submission => submission.SubmittedAtUtc > dayAgo)
+            .OrderBy(submission => submission.SubmittedAtUtc)
+            .Select(submission => submission.SubmittedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        if (lastDay.Count < _limits.MaxPerStudentPerDay)
+        {
+            return null;
+        }
+
+        // A place frees up when the oldest submission that keeps the count at the
+        // limit is a day old.
+        var wait = lastDay[lastDay.Count - _limits.MaxPerStudentPerDay].AddDays(1) - now;
+        var retry = wait.TotalHours >= 1
+            ? string.Create(CultureInfo.InvariantCulture, $"{Math.Ceiling(wait.TotalHours):0} hour(s)")
+            : string.Create(CultureInfo.InvariantCulture, $"{Math.Max(1, Math.Ceiling(wait.TotalMinutes)):0} minute(s)");
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"You can make at most {_limits.MaxPerStudentPerDay} submissions in 24 hours. You can submit again in {retry}.");
     }
 
     public Task<PagedResult<SubmissionListItemDto>> GetForStudentAsync(

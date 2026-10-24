@@ -345,6 +345,17 @@ public sealed class PdfTextExtractor : ITextExtractor
             cancellationToken.ThrowIfCancellationRequested();
             imageCount++;
 
+            // The PDF declares the size before anything is decoded, and decoding is
+            // what costs the memory.
+            if ((long)image.WidthInSamples * image.HeightInSamples > _limits.MaxPicturePixels)
+            {
+                failures.Add(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"an embedded image of {image.WidthInSamples:N0} x {image.HeightInSamples:N0} pixels is larger than "
+                    + $"the {_limits.MaxPicturePixels / 1_000_000.0:0.##}-megapixel limit for OCR, so it was not read."));
+                continue;
+            }
+
             if (!image.TryGetPng(out var png) || png is null || png.Length == 0)
             {
                 failures.Add("an embedded image could not be decoded to PNG.");

@@ -18,12 +18,6 @@ namespace SmartPlagiarism.Engine.Ocr;
 /// </summary>
 public sealed class TesseractCliOcrService : IOcrService, IDisposable
 {
-    /// <summary>
-    /// A 300 DPI Bangla page takes a few seconds. Anything this slow is stuck, and
-    /// one stuck page must not hold up the whole analysis queue.
-    /// </summary>
-    public static readonly TimeSpan PageTimeout = TimeSpan.FromMinutes(2);
-
     private static readonly TimeSpan s_probeTimeout = TimeSpan.FromSeconds(15);
 
     /// <summary>
@@ -98,7 +92,7 @@ public sealed class TesseractCliOcrService : IOcrService, IDisposable
     private async Task<OcrResult> RunAsync(string executable, byte[] imageBytes, CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(PageTimeout);
+        timeout.CancelAfter(_options.PageTimeout);
 
         using var process = new Process
         {
@@ -129,7 +123,7 @@ public sealed class TesseractCliOcrService : IOcrService, IDisposable
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             Stop(process);
-            return OcrResult.Failure($"Tesseract took longer than {PageTimeout.TotalMinutes:0} minutes on one page.");
+            return OcrResult.TimedOut(_options.PageTimeout);
         }
         catch (OperationCanceledException)
         {

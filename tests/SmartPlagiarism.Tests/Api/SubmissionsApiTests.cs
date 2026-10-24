@@ -224,3 +224,24 @@ public sealed class ApiRateLimitTests(RateLimitedApiTestFactory factory) : IClas
         other.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 }
+
+/// <summary>The per-student submission limit as the portal meets it, on its own app instance.</summary>
+public sealed class ApiSubmissionLimitTests(SubmissionLimitedApiTestFactory factory) : IClassFixture<SubmissionLimitedApiTestFactory>
+{
+    [Fact]
+    public async Task ASubmissionBeyondTheStudentsDailyLimit_IsA400_ThatSaysWhy()
+    {
+        var data = await factory.SeedAsync();
+        var client = factory.ClientWithKey(data.PortalKey);
+        var report = DocxFixture.Create(["A report about fingerprinting, winnowing and similarity."]);
+
+        var first = await client.PostAsync("/api/v1/submissions", await SubmissionsApiTests.FormAsync(factory, report, "report.docx"));
+        first.StatusCode.Should().Be(HttpStatusCode.Accepted);
+
+        var second = await client.PostAsync("/api/v1/submissions", await SubmissionsApiTests.FormAsync(factory, report, "report.docx"));
+
+        second.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await SubmissionsApiTests.Json(second)).GetProperty("errors").GetProperty("submission")[0].GetString()
+            .Should().Contain("at most 1 submissions in 24 hours");
+    }
+}

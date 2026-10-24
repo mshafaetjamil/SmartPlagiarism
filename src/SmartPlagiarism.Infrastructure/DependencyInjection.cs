@@ -75,6 +75,11 @@ public static class DependencyInjection
 
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IDashboardService, DashboardService>();
+
+        services.AddOptions<SubmissionOptions>()
+            .Bind(configuration.GetSection(SubmissionOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
         services.AddScoped<ISubmissionService, SubmissionService>();
         services.AddScoped<IExtractionService, ExtractionService>();
         services.AddScoped<IReviewService, ReviewService>();
