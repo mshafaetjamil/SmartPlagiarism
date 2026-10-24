@@ -137,6 +137,31 @@ public class PdfLayoutAndLimitsTests
     }
 
     [Fact]
+    public async Task ScanThatCannotBeDrawn_IsReadFromItsEmbeddedImage()
+    {
+        var pdf = PdfFixture.CreatePicturePage("Scan", PngFixture.Create());
+        var ocr = new ScriptedOcrService(PictureWords);
+
+        var result = await new PdfTextExtractor(ocr, new UnrenderableRenderer()).ExtractAsync(new MemoryStream(pdf));
+
+        ocr.CallCount.Should().Be(1);
+        result.FullText.Should().Contain("groundwater");
+    }
+
+    [Fact]
+    public async Task EmbeddedImageOverThePixelLimit_IsNotDecodedForOcr()
+    {
+        var pdf = PdfFixture.CreatePicturePage("Scan", PngFixture.Create(width: 120, height: 120));
+        var ocr = new ScriptedOcrService(PictureWords);
+        var extractor = new PdfTextExtractor(ocr, new UnrenderableRenderer(), new ExtractionLimits { MaxPicturePixels = 10_000 });
+
+        var result = await extractor.ExtractAsync(new MemoryStream(pdf));
+
+        ocr.CallCount.Should().Be(0);
+        result.Warnings.Should().Contain(warning => warning.Contains("120 x 120 pixels is larger than the 0.01-megapixel limit"));
+    }
+
+    [Fact]
     public void Renderer_DrawsALargePageSmallerRatherThanAtFullResolution()
     {
         var pdf = PdfFixture.Create("An A4 page is 3508 pixels tall at 300 DPI");
@@ -150,4 +175,11 @@ public class PdfLayoutAndLimitsTests
 
     private static Task<TextExtractionResult> Extract(byte[] pdf) =>
         new PdfTextExtractor(s_noOcr, s_renderer).ExtractAsync(new MemoryStream(pdf));
+
+    /// <summary>Stands in for PDFium failing, which sends a scan to its embedded images.</summary>
+    private sealed class UnrenderableRenderer : IPdfPageRenderer
+    {
+        public PageRenderResult RenderPng(byte[] pdf, int pageNumber) =>
+            PageRenderResult.Failure("the page could not be rendered in this test.");
+    }
 }

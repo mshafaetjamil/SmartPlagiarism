@@ -48,7 +48,7 @@ public sealed class DocxTextExtractor : ITextExtractor
         var builder = new TextExtractionResultBuilder();
         var settings = OfficePackage.CheckedOpenSettings(bytes, _limits);
         var budget = new OcrBudget(_limits.OcrTimeBudget);
-        var pictures = new PictureReader(_ocr, budget);
+        var pictures = new PictureReader(_ocr, budget, _limits.MaxPicturePixels);
 
         using var buffer = new MemoryStream(bytes, writable: false);
         using var word = WordprocessingDocument.Open(buffer, isEditable: false, settings);

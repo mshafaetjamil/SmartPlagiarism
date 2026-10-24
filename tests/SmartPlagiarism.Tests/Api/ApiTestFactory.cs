@@ -45,6 +45,9 @@ public class ApiTestFactory : WebApplicationFactory<Program>
     /// <summary>Uploads allowed per key per minute; high by default so only the rate-limit test meets it.</summary>
     protected virtual int UploadsPerMinute => 1000;
 
+    /// <summary>Submissions one student may make a day; high by default so only the submission-limit test meets it.</summary>
+    protected virtual int SubmissionsPerStudentPerDay => 1000;
+
     /// <summary>Where the app's JSON log files go - the temporary folder, not the source tree.</summary>
     public string LogDirectory => Path.Combine(_root, "logs");
 
@@ -60,6 +63,7 @@ public class ApiTestFactory : WebApplicationFactory<Program>
         builder.UseSetting("LogFile:Path", Path.Combine(LogDirectory, "app-.json"));
         builder.UseSetting("Ocr:Enabled", "false");
         builder.UseSetting("Api:UploadsPerMinute", UploadsPerMinute.ToString(CultureInfo.InvariantCulture));
+        builder.UseSetting("Submissions:MaxPerStudentPerDay", SubmissionsPerStudentPerDay.ToString(CultureInfo.InvariantCulture));
 
         builder.ConfigureLogging(logging => logging.AddProvider(Log));
 
@@ -259,6 +263,12 @@ public sealed class RateLimitedApiTestFactory : ApiTestFactory
     public const int Limit = 2;
 
     protected override int UploadsPerMinute => Limit;
+}
+
+/// <summary>The same app allowing each student one submission a day, for the submission-limit test.</summary>
+public sealed class SubmissionLimitedApiTestFactory : ApiTestFactory
+{
+    protected override int SubmissionsPerStudentPerDay => 1;
 }
 
 /// <summary>An in-memory log of the app's warnings and errors, exceptions included.</summary>

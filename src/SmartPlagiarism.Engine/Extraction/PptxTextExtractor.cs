@@ -44,7 +44,7 @@ public sealed class PptxTextExtractor : ITextExtractor
         var builder = new TextExtractionResultBuilder();
         var settings = OfficePackage.CheckedOpenSettings(bytes, _limits);
         var budget = new OcrBudget(_limits.OcrTimeBudget);
-        var pictures = new PictureReader(_ocr, budget);
+        var pictures = new PictureReader(_ocr, budget, _limits.MaxPicturePixels);
 
         using var buffer = new MemoryStream(bytes, writable: false);
         using var presentation = PresentationDocument.Open(buffer, isEditable: false, settings);

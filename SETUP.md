@@ -243,7 +243,8 @@ missing.
   "Enabled": true,
   "TessDataPath": "App_Data/tessdata",
   "Language": "ben+eng",
-  "TesseractExecutable": ""   // empty = search PATH, Homebrew and Program Files
+  "TesseractExecutable": "",  // empty = search PATH, Homebrew and Program Files
+  "PageTimeout": "00:02:00"   // time allowed for one page or picture
 }
 ```
 

@@ -38,6 +38,15 @@ public sealed class ExtractionLimits
     public int MaxRenderedPagePixels { get; set; } = 6000;
 
     /// <summary>
+    /// Pixels in one picture handed to OCR - a picture inside a DOCX or PPTX, or an
+    /// image embedded in a PDF. Decoding costs a few bytes a pixel however small
+    /// the file, and a file of a few megabytes can declare billions of pixels, so
+    /// a larger picture is skipped with a warning instead. An A4 page scanned at
+    /// 600 DPI is 35 megapixels.
+    /// </summary>
+    public long MaxPicturePixels { get; set; } = 40_000_000;
+
+    /// <summary>
     /// Time one document may spend in OCR. Pages or images still unread when it
     /// runs out are listed in a warning rather than read.
     /// </summary>

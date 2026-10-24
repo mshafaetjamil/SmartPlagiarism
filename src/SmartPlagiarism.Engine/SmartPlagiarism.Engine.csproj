@@ -11,6 +11,11 @@
     <PackageReference Include="Tesseract" Version="5.2.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Lets the tests check internal helpers, such as picture-size reading, directly. -->
+    <InternalsVisibleTo Include="SmartPlagiarism.Tests" />
+  </ItemGroup>
+
   <!--
     ARCHITECTURE RULE (CLAUDE.md): this project must never reference ASP.NET Core,
     EF Core, or any other project in this solution - only the BCL and its own

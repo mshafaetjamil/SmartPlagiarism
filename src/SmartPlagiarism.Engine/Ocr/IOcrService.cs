@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace SmartPlagiarism.Engine.Ocr;
 
 /// <summary>Text recognised from one image.</summary>
@@ -9,6 +11,11 @@ public sealed record OcrResult(bool Succeeded, string Text, string? Error)
     public static OcrResult Success(string text) => new(true, text, null);
 
     public static OcrResult Failure(string error) => new(false, string.Empty, error);
+
+    /// <summary>Recognition gave up on an image after <see cref="OcrOptions.PageTimeout"/>.</summary>
+    public static OcrResult TimedOut(TimeSpan limit) => Failure(string.Create(
+        CultureInfo.InvariantCulture,
+        $"Tesseract took longer than {limit.TotalMinutes:0.##} minutes on one image, so it was not read."));
 }
 
 /// <summary>

@@ -12,10 +12,11 @@ namespace SmartPlagiarism.Engine.Extraction;
 ///
 /// Each picture is read once however often it appears, and only pictures that
 /// could hold text are tried: raster formats OCR understands, big enough not to
-/// be an icon. What OCR finds is kept only if it amounts to a few words - a logo
-/// or a chart's axis labels are noise, not prose.
+/// be an icon, and small enough to decode safely. What OCR finds is kept only if
+/// it amounts to a few words - a logo or a chart's axis labels are noise, not prose.
 /// </summary>
-internal sealed class PictureReader(IOcrService ocr, OcrBudget budget)
+/// <param name="maxPixels">Pictures declaring more pixels than this are not decoded.</param>
+internal sealed class PictureReader(IOcrService ocr, OcrBudget budget, long maxPixels)
 {
     /// <summary>Smaller files are icons and bullets, not pictures of text.</summary>
     private const long MinimumBytes = 10 * 1024;
@@ -30,6 +31,8 @@ internal sealed class PictureReader(IOcrService ocr, OcrBudget budget)
 
     private readonly Dictionary<Uri, string?> _read = [];
     private int _unreadWithoutOcr;
+    private int _tooLarge;
+    private int _unmeasured;
     private int _failed;
 
     /// <param name="location">Where the picture is, for warnings - "slide 4".</param>
@@ -70,6 +73,22 @@ internal sealed class PictureReader(IOcrService ocr, OcrBudget budget)
             return null;
         }
 
+        // Read from the header before OCR decodes it: decoding is what costs the
+        // memory, and a small file can declare an enormous picture.
+        var pixels = PictureSize.DecodedPixels(bytes);
+
+        if (pixels is null)
+        {
+            _unmeasured++;
+            return null;
+        }
+
+        if (pixels > maxPixels)
+        {
+            _tooLarge++;
+            return null;
+        }
+
         if (!budget.HasTimeLeft)
         {
             budget.SkipImage(location);
@@ -100,6 +119,21 @@ internal sealed class PictureReader(IOcrService ocr, OcrBudget budget)
                 CultureInfo.InvariantCulture,
                 $"The file has {_unreadWithoutOcr} picture(s) that may contain text, and OCR is unavailable "
                 + $"({ocr.UnavailableReason}), so any text in them is not read.");
+        }
+
+        if (_tooLarge > 0)
+        {
+            yield return string.Create(
+                CultureInfo.InvariantCulture,
+                $"{_tooLarge} picture(s) are larger than the {maxPixels / 1_000_000.0:0.##}-megapixel limit for OCR, "
+                + $"so any text in them is not measured.");
+        }
+
+        if (_unmeasured > 0)
+        {
+            yield return string.Create(
+                CultureInfo.InvariantCulture,
+                $"{_unmeasured} picture(s) are damaged or in an unrecognised format, so any text in them is not measured.");
         }
 
         if (_failed > 0)

@@ -69,6 +69,54 @@ public class OfficePicturesAndLimitsTests
     }
 
     [Fact]
+    public async Task Docx_PictureOverThePixelLimit_IsNotDecodedForOcr()
+    {
+        var docx = DocxFixture.FromBodyXml(
+            $"<w:p><w:r><w:t>The diagram below shows the algorithm.</w:t></w:r>{DocxFixture.PictureXml}</w:p>",
+            picture: PngFixture.Create(width: 120, height: 120));
+        var ocr = new ScriptedOcrService(ScreenshotText);
+        var extractor = new DocxTextExtractor(ocr, new ExtractionLimits { MaxPicturePixels = 10_000 });
+
+        var result = await extractor.ExtractAsync(new MemoryStream(docx));
+
+        ocr.CallCount.Should().Be(0);
+        result.FullText.Should().NotContain("minimum hash");
+        result.Warnings.Should().ContainSingle().Which.Should().Contain("1 picture(s) are larger than the 0.01-megapixel limit");
+    }
+
+    [Fact]
+    public async Task Pptx_PictureOverThePixelLimit_IsNotDecodedForOcr()
+    {
+        var pptx = PptxFixture.FromParagraphXml(string.Empty, picture: PngFixture.Create(width: 120, height: 120));
+        var ocr = new ScriptedOcrService(ScreenshotText);
+        var extractor = new PptxTextExtractor(ocr, new ExtractionLimits { MaxPicturePixels = 10_000 });
+
+        var result = await extractor.ExtractAsync(new MemoryStream(pptx));
+
+        ocr.CallCount.Should().Be(0);
+        result.Warnings.Should().Contain(warning => warning.Contains("1 picture(s) are larger than the 0.01-megapixel limit"));
+    }
+
+    [Fact]
+    public async Task Docx_PictureThatCannotBeMeasured_IsNotDecodedForOcr()
+    {
+        // Big enough not to be taken for an icon, but in no format a header can be read from.
+        var notAPicture = new byte[20 * 1024];
+        new Random(7).NextBytes(notAPicture);
+        notAPicture[0] = 0;
+
+        var docx = DocxFixture.FromBodyXml(
+            $"<w:p><w:r><w:t>The diagram below shows the algorithm.</w:t></w:r>{DocxFixture.PictureXml}</w:p>",
+            picture: notAPicture);
+        var ocr = new ScriptedOcrService(ScreenshotText);
+
+        var result = await new DocxTextExtractor(ocr).ExtractAsync(new MemoryStream(docx));
+
+        ocr.CallCount.Should().Be(0);
+        result.Warnings.Should().ContainSingle().Which.Should().Contain("damaged or in an unrecognised format");
+    }
+
+    [Fact]
     public async Task Docx_ThatUnpacksBeyondTheLimit_IsRefusedWithAReason()
     {
         var docx = DocxFixture.Create(["Enough text to unpack to more than a hundred bytes of XML."]);

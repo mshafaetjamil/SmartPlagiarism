@@ -10,15 +10,18 @@ namespace SmartPlagiarism.Engine.Ocr;
 /// language file may not have been downloaded. None of those may take extraction
 /// down, so initialisation is probed once, lazily, and any failure is recorded as
 /// a reason rather than thrown.
+///
+/// The library has no way to cancel or time-limit recognition, so each image runs
+/// through a <see cref="TimeLimitedEngine{TEngine}"/>, which gives up on one that
+/// takes longer than <see cref="OcrOptions.PageTimeout"/>.
 /// </summary>
 public sealed class TesseractOcrService : IOcrService, IDisposable
 {
     private readonly OcrOptions _options;
-    private readonly Lazy<TesseractEngine?> _engine;
 
     // TesseractEngine is not thread-safe, and analysis runs several documents at
-    // once, so recognition is serialised through this.
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    // once, so recognition is serialised through the time-limited engine.
+    private readonly Lazy<TimeLimitedEngine<TesseractEngine>?> _engine;
 
     private string? _unavailableReason;
     private bool _disposed;
@@ -26,7 +29,7 @@ public sealed class TesseractOcrService : IOcrService, IDisposable
     public TesseractOcrService(OcrOptions options)
     {
         _options = options;
-        _engine = new Lazy<TesseractEngine?>(TryCreateEngine, LazyThreadSafetyMode.ExecutionAndPublication);
+        _engine = new Lazy<TimeLimitedEngine<TesseractEngine>?>(TryCreateEngine, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     public bool IsAvailable => _engine.Value is not null;
@@ -56,14 +59,28 @@ public sealed class TesseractOcrService : IOcrService, IDisposable
             return OcrResult.Failure("The page image was empty.");
         }
 
-        await _gate.WaitAsync(cancellationToken);
-
         try
         {
-            using var image = Pix.LoadFromMemory(imageBytes);
-            using var page = engine.Process(image);
+            var text = await engine.RunAsync(
+                tesseract =>
+                {
+                    using var image = Pix.LoadFromMemory(imageBytes);
+                    using var page = tesseract.Process(image);
 
-            return OcrResult.Success(page.GetText() ?? string.Empty);
+                    return page.GetText() ?? string.Empty;
+                },
+                cancellationToken);
+
+            return OcrResult.Success(text);
+        }
+        catch (TimeoutException)
+        {
+            return OcrResult.TimedOut(_options.PageTimeout);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Shutdown, not an unreadable image.
+            throw;
         }
         catch (Exception ex)
         {
@@ -71,16 +88,12 @@ public sealed class TesseractOcrService : IOcrService, IDisposable
             // this into a warning against the page it came from.
             return OcrResult.Failure($"Tesseract could not read the page image: {ex.Message}");
         }
-        finally
-        {
-            _gate.Release();
-        }
     }
 
     /// <summary>
     /// Returns null - never throws - when OCR cannot be set up, recording why.
     /// </summary>
-    private TesseractEngine? TryCreateEngine()
+    private TimeLimitedEngine<TesseractEngine>? TryCreateEngine()
     {
         if (!_options.Enabled)
         {
@@ -108,7 +121,7 @@ public sealed class TesseractOcrService : IOcrService, IDisposable
 
         try
         {
-            return new TesseractEngine(_options.TessDataPath, _options.Language, EngineMode.Default);
+            return new TimeLimitedEngine<TesseractEngine>(NewEngine(), NewEngine, _options.PageTimeout);
         }
         catch (Exception ex)
         {
@@ -119,6 +132,8 @@ public sealed class TesseractOcrService : IOcrService, IDisposable
             return null;
         }
     }
+
+    private TesseractEngine NewEngine() => new(_options.TessDataPath, _options.Language, EngineMode.Default);
 
     public void Dispose()
     {
@@ -133,7 +148,5 @@ public sealed class TesseractOcrService : IOcrService, IDisposable
         {
             _engine.Value?.Dispose();
         }
-
-        _gate.Dispose();
     }
 }
