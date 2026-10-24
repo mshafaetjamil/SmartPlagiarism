@@ -167,11 +167,13 @@ unreadable file look perfectly original.
 
 | Concern | How it is handled |
 | --- | --- |
-| Who sees what | Three roles (Admin, Teacher, Student) plus one shared access rule: a student sees only their own submissions, a teacher only their department's, an API key only the submissions it created. Anything else returns 404, never 403, so nobody can probe which ids exist. |
+| Who sees what | Three roles (Admin, Teacher, Student) plus one shared access rule: a student sees only their own submissions, a teacher only their department's, an API key only the submissions it created. Anything else returns 404, never 403, so nobody can probe which ids exist. When a match crosses departments, the match viewer shows the other department's work as its matched passages only, with a little text around each. |
+| Sign-in | One message for every failed sign-in, whatever the reason, and the same password-checking work, so neither the page nor its timing tells which accounts exist. Five wrong passwords lock an account for five minutes; an address with 20 failed sign-ins in 15 minutes is refused for a while, so one machine cannot try a common password on every account. |
 | Student privacy | A student's report never names or quotes another student. It says "Another student's submission (CSE402)". |
 | Uploads | Extension whitelist, file-signature (magic byte) check, 25 MB per file, 5 files. Files are stored outside the web root under their SHA-256 hash; the client's file name is kept only for display. Each student may have 3 submissions waiting for analysis and make 10 a day, counted from the database for the web form and the API alike. |
 | Forged requests (CSRF) | A global antiforgery filter covers every form post, and a test checks that every POST action is covered. The REST API is exempt: it accepts only an API key in a header, which a forged request cannot set. |
-| Browser hardening | A strict Content-Security-Policy (no inline scripts or styles anywhere), `nosniff`, no framing, referrer and permissions policies, HTTPS redirection with HSTS, and no `Server` header. |
+| Browser hardening | A strict Content-Security-Policy (no inline scripts or styles anywhere), `nosniff`, no framing, referrer and permissions policies, HTTPS redirection with HSTS, and no `Server` header. Outside Development every cookie is HTTPS-only, even where TLS ends at a proxy in front of the app. |
+| Behind a proxy | `X-Forwarded-For` and `X-Forwarded-Proto` are believed only from this machine and the proxies listed under `ReverseProxy:KnownProxies`, so the audit log and the sign-in limit see the real client address and nobody can claim another. |
 | API keys | 256 bits of randomness, stored only as a SHA-256 hash, compared in constant time, revocable, rate-limited per key. |
 | Errors | Users see a friendly page or problem-details JSON with a reference number, never an exception message or stack trace. |
 | Accountability | Sign-ins, reviews, re-analyses, admin changes and API key events are written to an audit log that admins can filter. |

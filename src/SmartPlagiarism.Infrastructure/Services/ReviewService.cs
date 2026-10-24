@@ -133,7 +133,8 @@ public class ReviewService : IReviewService
     {
         // Either side in the teacher's department will do: the source is the
         // evidence for their student's match, and their student's work is the
-        // evidence when a later submission from elsewhere copied it.
+        // evidence when a later submission from elsewhere copied it. The side
+        // from the other department is shown as its matched passages only.
         var visible = _context.Submissions.VisibleToTeacher(_context, teacherUserId);
 
         var match = await _context.MatchedDocuments
@@ -170,6 +171,12 @@ public class ReviewService : IReviewService
                     candidate.MatchedUploadedFile.ArchiveDocument!.Author),
                 SourceText = candidate.MatchedUploadedFile.ExtractedText!.FullText,
                 SourceExtractedAt = (DateTime?)candidate.MatchedUploadedFile.ExtractedText!.ExtractedAtUtc,
+                SubmittedInScope = visible.Any(submission => submission.Id == candidate.PlagiarismResult.SubmissionId),
+
+                // Archive documents are the university's own records, not another
+                // department's current students, and are shown in full.
+                SourceInScope = candidate.MatchedUploadedFile.SubmissionId == null
+                    || visible.Any(submission => submission.Id == candidate.MatchedUploadedFile.SubmissionId),
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -198,16 +205,35 @@ public class ReviewService : IReviewService
                 match.SubmittedFileName,
                 match.SubmissionTitle,
                 match.SubmittedStudent,
-                HighlightSegmenter.Segment(
+                Segments(
                     match.SubmittedText,
-                    fragments.Select((fragment, index) => new HighlightSpan(fragment.TargetStart, fragment.TargetEnd, index)))),
+                    [.. fragments.Select((fragment, index) => new HighlightSpan(fragment.TargetStart, fragment.TargetEnd, index))],
+                    passagesOnly: !match.SubmittedInScope),
+                PassagesOnly: !match.SubmittedInScope),
             new ComparisonSideDto(
                 match.SourceFileName,
                 match.Source.Title,
                 match.Source.Owner,
-                HighlightSegmenter.Segment(
+                Segments(
                     match.SourceText,
-                    fragments.Select((fragment, index) => new HighlightSpan(fragment.SourceStart, fragment.SourceEnd, index)))));
+                    [.. fragments.Select((fragment, index) => new HighlightSpan(fragment.SourceStart, fragment.SourceEnd, index))],
+                    passagesOnly: !match.SourceInScope),
+                PassagesOnly: !match.SourceInScope));
+    }
+
+    /// <summary>
+    /// One side's text, cut into highlighted segments - only its matched passages
+    /// and a little around them when the work is from another department.
+    /// </summary>
+    private static IReadOnlyList<HighlightSegment> Segments(string? text, IReadOnlyList<HighlightSpan> spans, bool passagesOnly)
+    {
+        if (!passagesOnly)
+        {
+            return HighlightSegmenter.Segment(text, spans);
+        }
+
+        var (excerpt, moved) = PassageExcerpt.Cut(text, spans);
+        return HighlightSegmenter.Segment(excerpt, moved);
     }
 
     public Task<ReviewDecisionOutcome> ApproveAsync(

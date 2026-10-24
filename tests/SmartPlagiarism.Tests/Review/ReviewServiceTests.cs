@@ -3,7 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartPlagiarism.Core.Auditing;
 using SmartPlagiarism.Core.DTOs.Review;
+using SmartPlagiarism.Core.Entities;
 using SmartPlagiarism.Core.Enums;
+using SmartPlagiarism.Core.Review;
 using SmartPlagiarism.Infrastructure.Data;
 using SmartPlagiarism.Infrastructure.Services;
 using SmartPlagiarism.Tests.Analysis;
@@ -224,6 +226,93 @@ public class ReviewServiceTests
     }
 
     // ---------------- comparison ----------------
+
+    [Fact]
+    public async Task Comparison_WhereTheSourceIsFromAnotherDepartment_ShowsOnlyItsMatchedPassages()
+    {
+        await using var harness = await AnalysisTestHarness.CreateAsync();
+        var (originalId, copyId) = await PaddedOriginalAndCopyAsync(harness);
+        await MoveToAnotherDepartmentAsync(harness, originalId);
+
+        await using var context = harness.NewContext();
+        var service = NewService(context);
+        var matchId = (await service.GetSubmissionAsync(copyId, harness.TeacherUserId))!.Result!.Matches.Single().MatchId;
+
+        var comparison = await service.GetComparisonAsync(matchId, harness.TeacherUserId);
+
+        comparison!.Submitted.PassagesOnly.Should().BeFalse();
+        TextOf(comparison.Submitted).Should().Contain("Copy opening remarks").And.Contain("Copy closing remarks");
+
+        comparison.Source.PassagesOnly.Should().BeTrue();
+        TextOf(comparison.Source).Should().Contain("Winnowing selects the minimum hash")
+            .And.Contain(PassageExcerpt.Gap.Trim())
+            .And.NotContain("Original opening remarks").And.NotContain("Original closing remarks");
+        comparison.Source.Segments.Should().ContainSingle(segment => segment.IsHighlighted);
+    }
+
+    [Fact]
+    public async Task Comparison_WhereTheLaterCopyIsFromAnotherDepartment_ShowsOnlyItsMatchedPassages()
+    {
+        await using var harness = await AnalysisTestHarness.CreateAsync();
+        var (originalId, copyId) = await PaddedOriginalAndCopyAsync(harness);
+        await MoveToAnotherDepartmentAsync(harness, copyId);
+
+        await using var context = harness.NewContext();
+        var service = NewService(context);
+        var matchId = (await service.GetSubmissionAsync(originalId, harness.TeacherUserId))!.MatchedBy.Single().MatchId;
+
+        var comparison = await service.GetComparisonAsync(matchId, harness.TeacherUserId);
+
+        comparison!.Source.PassagesOnly.Should().BeFalse();
+        TextOf(comparison.Source).Should().Contain("Original opening remarks");
+
+        comparison.Submitted.PassagesOnly.Should().BeTrue();
+        TextOf(comparison.Submitted).Should().Contain("Winnowing selects the minimum hash")
+            .And.NotContain("Copy opening remarks").And.NotContain("Copy closing remarks");
+    }
+
+    /// <summary>
+    /// Like <see cref="OriginalAndCopyAsync"/>, but each document's own text runs
+    /// on far past the copied paragraph, so an excerpt leaves its ends out.
+    /// </summary>
+    private static async Task<(int OriginalId, int CopyId)> PaddedOriginalAndCopyAsync(AnalysisTestHarness harness)
+    {
+        static string Filler(string word) => string.Join(" ", Enumerable.Range(1, 60).Select(index => $"{word}{index}"));
+
+        var originalId = await harness.SubmitAsync(("original.docx", DocxFixture.Create(
+        [
+            "Original opening remarks. " + Filler("background"),
+            CopiedParagraph,
+            Filler("summary") + " Original closing remarks.",
+        ])));
+        var copyId = await harness.SubmitAsOtherStudentAsync(("copy.docx", DocxFixture.Create(
+        [
+            "Copy opening remarks. " + Filler("motivation"),
+            CopiedParagraph,
+            Filler("conclusion") + " Copy closing remarks.",
+        ])));
+
+        await harness.AnalyzeAsync(originalId);
+        await harness.AnalyzeAsync(copyId);
+
+        return (originalId, copyId);
+    }
+
+    /// <summary>Puts the submission in a course of the department the harness's teacher does not review.</summary>
+    private static async Task MoveToAnotherDepartmentAsync(AnalysisTestHarness harness, int submissionId)
+    {
+        await using var context = harness.NewContext();
+        var elsewhere = await context.Departments.SingleAsync(department => department.Code == "HARNESS-OUT");
+        var course = new Course { DepartmentId = elsewhere.Id, Code = "OUT-101", Title = "Elsewhere" };
+
+        context.Courses.Add(course);
+        await context.SaveChangesAsync();
+
+        (await context.Submissions.SingleAsync(submission => submission.Id == submissionId)).CourseId = course.Id;
+        await context.SaveChangesAsync();
+    }
+
+    private static string TextOf(ComparisonSideDto side) => string.Concat(side.Segments.Select(segment => segment.Text));
 
     [Fact]
     public async Task Comparison_HighlightsTheCopiedParagraphOnBothSides()

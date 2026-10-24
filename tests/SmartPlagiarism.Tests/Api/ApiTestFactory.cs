@@ -36,6 +36,9 @@ public class ApiTestFactory : WebApplicationFactory<Program>
     private readonly SemaphoreSlim _seedGate = new(1, 1);
     private ApiTestData? _data;
 
+    /// <summary>Requests go over HTTPS, as in production, where every cookie is HTTPS-only.</summary>
+    public ApiTestFactory() => ClientOptions.BaseAddress = new Uri("https://localhost");
+
     /// <summary>
     /// Warnings and errors the app logged, so a test that fails because of
     /// something inside the app - a failed analysis - can say what it was.
@@ -47,6 +50,9 @@ public class ApiTestFactory : WebApplicationFactory<Program>
 
     /// <summary>Submissions one student may make a day; high by default so only the submission-limit test meets it.</summary>
     protected virtual int SubmissionsPerStudentPerDay => 1000;
+
+    /// <summary>Failed sign-ins allowed per address; high by default so only the throttle test meets it.</summary>
+    protected virtual int SignInFailuresPerAddress => 1000;
 
     /// <summary>Where the app's JSON log files go - the temporary folder, not the source tree.</summary>
     public string LogDirectory => Path.Combine(_root, "logs");
@@ -64,6 +70,7 @@ public class ApiTestFactory : WebApplicationFactory<Program>
         builder.UseSetting("Ocr:Enabled", "false");
         builder.UseSetting("Api:UploadsPerMinute", UploadsPerMinute.ToString(CultureInfo.InvariantCulture));
         builder.UseSetting("Submissions:MaxPerStudentPerDay", SubmissionsPerStudentPerDay.ToString(CultureInfo.InvariantCulture));
+        builder.UseSetting("SignIn:MaxFailuresPerAddress", SignInFailuresPerAddress.ToString(CultureInfo.InvariantCulture));
 
         builder.ConfigureLogging(logging => logging.AddProvider(Log));
 

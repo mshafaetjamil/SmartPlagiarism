@@ -1,5 +1,7 @@
+using System.Net;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using SmartPlagiarism.Core.Identity;
 using SmartPlagiarism.Infrastructure;
@@ -20,6 +22,29 @@ builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 // EF Core, Identity and the rest of the persistence stack.
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Outside Development every cookie - sign-in, antiforgery, status messages - is
+// sent over HTTPS only, even when TLS ends at a proxy in front of the app and the
+// request reaches it over plain HTTP. Development keeps sign-in working on the
+// http://localhost profile.
+var cookieSecurity = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+builder.Services.Configure<CookiePolicyOptions>(options => options.Secure = cookieSecurity);
+
+// Behind a reverse proxy the client's address and scheme arrive in
+// X-Forwarded-For and X-Forwarded-Proto. Only proxies listed under
+// ReverseProxy:KnownProxies are believed, besides this machine itself: anyone
+// else could send the headers to pass as any address they like.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+    foreach (var proxy in builder.Configuration.GetSection("ReverseProxy:KnownProxies").Get<string[]>() ?? [])
+    {
+        options.KnownProxies.Add(IPAddress.TryParse(proxy, out var address)
+            ? address
+            : throw new InvalidOperationException($"ReverseProxy:KnownProxies holds '{proxy}', which is not an IP address."));
+    }
+});
+
 // Identity's cookie defaults already point at /Account/*, but pinning them here
 // keeps the routes and the auth configuration visible in one place.
 builder.Services.ConfigureApplicationCookie(options =>
@@ -31,7 +56,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SecurePolicy = cookieSecurity;
 });
 
 builder.Services.AddAuthorization(options =>
@@ -53,6 +78,9 @@ builder.Services.AddAuthorization(options =>
 // Scoped: it asks the database, through the request's DbContext.
 builder.Services.AddScoped<IAuthorizationHandler, SubmissionAccessHandler>();
 
+// Failed sign-ins counted per client address.
+builder.Services.AddSignInThrottle(builder.Configuration);
+
 // API-key authentication, the upload rate limit and the OpenAPI document.
 builder.Services.AddRestApi(builder.Configuration);
 
@@ -73,7 +101,10 @@ builder.Services.AddControllersWithViews(options =>
 
 var app = builder.Build();
 
-// First, so every request is timed and recorded - the ones that fail included.
+// Before anything reads the client's address or scheme, the log included.
+app.UseForwardedHeaders();
+
+// First after that, so every request is timed and recorded - the ones that fail included.
 app.UseRequestLogging();
 
 // Error pages and problem details; outside Development, the exception handler.
@@ -100,6 +131,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseSecurityHeaders();
+
+// Ahead of everything that writes a cookie.
+app.UseCookiePolicy();
 
 app.UseRouting();
 
