@@ -50,6 +50,12 @@ public static class DependencyInjection
                 // Accounts are created by an administrator, not by public signup,
                 // so there is no confirmation step to gate sign-in on.
                 options.SignIn.RequireConfirmedAccount = false;
+
+                // Identity's own defaults, written out because the sign-in page
+                // and the documentation describe them.
+                options.Lockout.AllowedForNewUsers = true;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
             })
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();

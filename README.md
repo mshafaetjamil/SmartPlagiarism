@@ -198,6 +198,8 @@ grep <reference> src/SmartPlagiarism.Web/App_Data/logs/*.json
 | `Api:UploadsPerMinute` | `10` | Upload limit per API key |
 | `Submissions:MaxPendingPerStudent` | `3` | Submissions one student may have waiting for analysis at once |
 | `Submissions:MaxPerStudentPerDay` | `10` | Submissions one student may make in 24 hours |
+| `SignIn:MaxFailuresPerAddress`, `SignIn:FailureWindow` | `20`, `00:15:00` | Failed sign-ins one address may make before it is refused for a while |
+| `ReverseProxy:KnownProxies` | none | Addresses of reverse proxies whose `X-Forwarded-For`/`-Proto` headers are believed (this machine always is) |
 | `Extraction:*` | see `ExtractionLimits` | Page, size, picture (`MaxPicturePixels`, 40 megapixels) and OCR-time limits per document |
 
 ---

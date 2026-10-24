@@ -69,6 +69,12 @@
                         <div class="small text-uppercase text-body-secondary">@label</div>
                         <div class="fw-semibold">@side.FileName</div>
                         <div class="small text-body-secondary">@side.Title &middot; @side.Owner</div>
+                        @if (side.PassagesOnly)
+                        {
+                            <div class="small text-body-secondary mt-1">
+                                Only the matched passages are shown: this work belongs to a department you do not review.
+                            </div>
+                        }
                     </div>
                     <div class="card-body match-pane" data-match-pane>@HighlightRenderer.Render(side.Segments)</div>
                 </div>

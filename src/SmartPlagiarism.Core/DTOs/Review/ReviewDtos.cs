@@ -147,11 +147,16 @@ public sealed record ComparisonDto(
 
 /// <param name="Title">The submission's or archive document's title.</param>
 /// <param name="Owner">The student, or the archive author and year.</param>
+/// <param name="PassagesOnly">
+/// The work belongs to a department the teacher does not review, so only its
+/// matched passages and a little text around them are shown.
+/// </param>
 public sealed record ComparisonSideDto(
     string FileName,
     string Title,
     string Owner,
-    IReadOnlyList<HighlightSegment> Segments);
+    IReadOnlyList<HighlightSegment> Segments,
+    bool PassagesOnly);
 
 public enum ReviewDecisionOutcome
 {
