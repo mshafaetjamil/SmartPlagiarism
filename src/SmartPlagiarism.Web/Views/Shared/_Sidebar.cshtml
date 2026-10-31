@@ -1,0 +1,92 @@
+@using SmartPlagiarism.Core.Identity
+@{
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+
+    // Each role sees only the pages it is authorized for.
+    (string Heading, string Role, (string Text, string Controller, string Action)[] Links) menu =
+        User.IsInRole(ApplicationRoles.Admin)
+            ? ("Administration", "Administrator",
+            [
+                ("Dashboard", "Dashboard", "Admin"),
+                ("Statistics", "Statistics", "Index"),
+                ("Users", "Users", "Index"),
+                ("Departments", "Departments", "Index"),
+                ("Courses", "Courses", "Index"),
+                ("Semesters", "Semesters", "Index"),
+                ("Archive", "Archive", "Index"),
+                ("API keys", "ApiKeys", "Index"),
+                ("Audit log", "AuditLog", "Index"),
+            ])
+            : User.IsInRole(ApplicationRoles.Teacher)
+                ? ("Review", "Teacher",
+                [
+                    ("Dashboard", "Dashboard", "Teacher"),
+                    ("Submissions", "Review", "Index"),
+                ])
+                : ("My work", "Student",
+                [
+                    ("Dashboard", "Dashboard", "Student"),
+                    ("My submissions", "Submissions", "Index"),
+                    ("New submission", "Submissions", "Create"),
+                ]);
+
+    // The exact page if it is in the menu; otherwise the item for its section, so
+    // a submission's detail page keeps "My submissions" lit.
+    var activeLink = Array.FindIndex(menu.Links, link => link.Controller == controller && link.Action == action);
+    if (activeLink < 0)
+    {
+        activeLink = Array.FindIndex(menu.Links, link => link.Controller == controller);
+    }
+}
+<header class="app-mobilebar d-lg-none">
+    <a class="app-brand" asp-controller="Home" asp-action="Index">
+        <partial name="_BrandMark" />
+        <span>SmartPlagiarism</span>
+    </a>
+    <button class="app-menu-button" type="button" data-bs-toggle="offcanvas" data-bs-target="#appSidebar"
+            aria-controls="appSidebar">
+        Menu
+    </button>
+</header>
+
+<aside class="app-sidebar">
+    <div class="offcanvas-lg offcanvas-start app-sidebar-panel" tabindex="-1" id="appSidebar" aria-label="Main menu">
+        <div class="offcanvas-header pb-0 justify-content-end">
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"
+                    data-bs-target="#appSidebar" aria-label="Close menu"></button>
+        </div>
+        <div class="offcanvas-body">
+            <a class="app-brand app-sidebar-brand" asp-controller="Home" asp-action="Index">
+                <partial name="_BrandMark" />
+                <span>SmartPlagiarism</span>
+            </a>
+
+            <nav aria-label="Main">
+                <p class="app-nav-heading">@menu.Heading</p>
+                <ul class="app-nav">
+                    @for (var index = 0; index < menu.Links.Length; index++)
+                    {
+                        var link = menu.Links[index];
+                        <li>
+                            <a class="app-nav-link @(index == activeLink ? "active" : null)"
+                               aria-current="@(index == activeLink ? "page" : null)"
+                               asp-controller="@link.Controller" asp-action="@link.Action">@link.Text</a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+
+            <div class="app-sidebar-footer">
+                <div class="app-sidebar-email">@User.Identity?.Name</div>
+                <div class="app-sidebar-role mb-2">@menu.Role</div>
+                <div class="d-flex gap-3">
+                    <a class="app-sidebar-action" asp-controller="Home" asp-action="About">About</a>
+                    <form asp-controller="Account" asp-action="Logout" method="post">
+                        <button type="submit" class="app-sidebar-action">Sign out</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</aside>

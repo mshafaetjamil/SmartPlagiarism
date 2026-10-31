@@ -96,7 +96,7 @@ public class SignInTestFactory : ApiTestFactory
 {
     public const string Password = "Student#2026-check";
 
-    public async Task CreateAccountAsync(string email)
+    public async Task CreateAccountAsync(string email, string role = ApplicationRoles.Student)
     {
         await SeedAsync();
 
@@ -105,7 +105,7 @@ public class SignInTestFactory : ApiTestFactory
         var user = new ApplicationUser { UserName = email, Email = email, FullName = "Sign-in test student", EmailConfirmed = true };
 
         (await users.CreateAsync(user, Password)).Succeeded.Should().BeTrue();
-        await users.AddToRoleAsync(user, ApplicationRoles.Student);
+        await users.AddToRoleAsync(user, role);
     }
 
     /// <summary>Posts the real login form, antiforgery token and all.</summary>

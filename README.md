@@ -20,7 +20,7 @@ and a standalone similarity engine.
 
 | Role | Can |
 | --- | --- |
-| **Student** | Submit up to five files (25 MB each); watch the analysis status update live; see the similarity result; download an originality report that never names or quotes other students. |
+| **Student** | Submit up to five files (25 MB each); watch the analysis status update live; see the similarity result and matched sources, with other students' names left out; download an originality report that never names or quotes other students. |
 | **Teacher** | List their department's submissions with filters and sorting; open the side-by-side viewer with matched passages highlighted in both documents; approve, or reject with a comment; re-run an analysis; download the full staff report. |
 | **Admin** | Manage accounts, departments, courses and semesters; import past years' work into the archive from a ZIP; view system statistics and failed analyses; search the audit log; issue and revoke API keys. |
 | **University portal** | Upload submissions, poll their status and download reports over `/api/v1`, authenticated by API key and rate-limited per key. |
@@ -192,6 +192,7 @@ grep <reference> src/SmartPlagiarism.Web/App_Data/logs/*.json
 | --- | --- | --- |
 | `ConnectionStrings:DefaultConnection` | in `appsettings.Development.json` | SQL Server connection |
 | `FileStorage:RootPath` | `App_Data/uploads` | Where uploaded files are kept |
+| `Reports:InstitutionName` | `Smart Plagiarism Detection System` | The university's name in every report's header and footer (see [SETUP.md](SETUP.md), section 11) |
 | `Ocr:Enabled`, `Ocr:Language` | `true`, `ben+eng` | OCR for scanned or damaged pages |
 | `Ocr:PageTimeout` | `00:02:00` | Time OCR may spend on one page or picture before giving up on it |
 | `Analysis:Workers` | `2` | Submissions analysed at once |
@@ -225,7 +226,7 @@ students' names and text.
 
 **Student: the result of a submission.**
 
-![Student submission page showing 63.16% overall similarity](docs/screenshots/student-result.png)
+![Student originality report page with an overall similarity gauge showing 78.40%, matched sources and files examined](docs/screenshots/student-result.png)
 
 **Admin: system statistics.**
 

@@ -12,35 +12,37 @@
     <partial name="_StatusMessage" />
 
     <div class="card border-0 shadow-sm">
-        <table class="table mb-0 align-middle">
-            <thead>
-                <tr>
-                    <th scope="col">Department</th>
-                    <th scope="col">Code</th>
-                    <th scope="col">Title</th>
-                    <th scope="col" class="text-end">Submissions</th>
-                    <th scope="col"><span class="visually-hidden">Actions</span></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var course in Model.Items)
-                {
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead>
                     <tr>
-                        <td>@course.DepartmentCode</td>
-                        <td class="fw-semibold">@course.Code</td>
-                        <td>@course.Title</td>
-                        <td class="text-end">@course.SubmissionCount</td>
-                        <td class="text-end text-nowrap">
-                            <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@course.Id">Edit</a>
-                            <form method="post" asp-action="Delete" asp-route-id="@course.Id" class="d-inline"
-                                  data-confirm="Delete course @course.Code?">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                            </form>
-                        </td>
+                        <th scope="col">Department</th>
+                        <th scope="col">Code</th>
+                        <th scope="col">Title</th>
+                        <th scope="col" class="text-end">Submissions</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var course in Model.Items)
+                    {
+                        <tr>
+                            <td>@course.DepartmentCode</td>
+                            <td class="fw-semibold">@course.Code</td>
+                            <td>@course.Title</td>
+                            <td class="text-end">@course.SubmissionCount</td>
+                            <td class="text-end text-nowrap">
+                                <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@course.Id">Edit</a>
+                                <form method="post" asp-action="Delete" asp-route-id="@course.Id" class="d-inline"
+                                      data-confirm="Delete course @course.Code?">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <partial name="_Pager" model="PagerViewModel.For(nameof(CoursesController.Index), Model)" />

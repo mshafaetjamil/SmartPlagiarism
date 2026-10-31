@@ -59,23 +59,112 @@ public static class StatusBadge
     {
         if (percent is not { } value)
         {
-            var none = new TagBuilder("span");
-            none.AddCssClass("text-body-secondary");
-            none.InnerHtml.Append("-");
-            return none;
+            return NoScore();
         }
 
-        var badge = new TagBuilder("span");
-        badge.AddCssClass($"badge {SimilarityBadgeClass(value)}");
-        badge.InnerHtml.Append(string.Create(CultureInfo.InvariantCulture, $"{value:0.00}%"));
-        return badge;
+        return Pill(SimilarityBadgeClass(value), FormatPercent(value));
     }
+
+    /// <summary>
+    /// A similarity score as a bar coloured by <see cref="SimilarityBands"/>, with
+    /// the number beside it. The number carries the value; the bar is decoration,
+    /// hidden from screen readers. A dash when there is no score.
+    /// </summary>
+    public static IHtmlContent SimilarityBar(decimal? percent)
+    {
+        if (percent is not { } value)
+        {
+            return NoScore();
+        }
+
+        var fill = new TagBuilder("div");
+        fill.AddCssClass($"stat-bar-fill {SimilarityBarClass(value)}");
+        fill.Attributes["data-bar-width"] = string.Create(CultureInfo.InvariantCulture, $"{Math.Clamp(value, 0m, 100m):0.##}");
+
+        var track = new TagBuilder("div");
+        track.AddCssClass("stat-bar");
+        track.Attributes["aria-hidden"] = "true";
+        track.InnerHtml.AppendHtml(fill);
+
+        var number = new TagBuilder("span");
+        number.AddCssClass($"similarity-bar-value {SimilarityTextClass(value)}");
+        number.InnerHtml.Append(FormatPercent(value));
+
+        var bar = new TagBuilder("div");
+        bar.AddCssClass("similarity-bar");
+        bar.InnerHtml.AppendHtml(track);
+        bar.InnerHtml.AppendHtml(number);
+        return bar;
+    }
+
+    private static TagBuilder NoScore()
+    {
+        var none = new TagBuilder("span");
+        none.AddCssClass("text-body-secondary");
+        none.InnerHtml.Append("-");
+        return none;
+    }
+
+    public static string FormatPercent(decimal percent) =>
+        string.Create(CultureInfo.InvariantCulture, $"{percent:0.00}%");
+
+    /// <summary>
+    /// A submission's state in a list. Once an analysis has completed only the
+    /// teacher's decision is left to report, so its pill goes.
+    /// </summary>
+    public static IHtmlContent Status(AnalysisStatus analysis, SubmissionStatus review)
+    {
+        var pills = new TagBuilder("div");
+        pills.AddCssClass("status-pills");
+
+        if (analysis != AnalysisStatus.Completed)
+        {
+            pills.InnerHtml.AppendHtml(Pill(For(analysis), analysis.ToString()));
+        }
+
+        pills.InnerHtml.AppendHtml(Pill(For(review), Label(review)));
+        return pills;
+    }
+
+    private static TagBuilder Pill(string cssClass, string text)
+    {
+        var pill = new TagBuilder("span");
+        pill.AddCssClass($"badge {cssClass}");
+        pill.InnerHtml.Append(text);
+        return pill;
+    }
+
+    /// <summary>A score's band, in words.</summary>
+    public static string SimilarityBandLabel(decimal percent) => SimilarityBands.Classify(percent) switch
+    {
+        SimilarityBand.Low => "Low similarity",
+        SimilarityBand.Moderate => "Moderate similarity",
+        _ => "High similarity",
+    };
+
+    /// <summary>A bar's width as a percentage of the largest value in its chart; site.js applies it.</summary>
+    public static string BarWidth(int value, int max) =>
+        (max == 0 ? 0 : value * 100.0 / max).ToString("0.#", CultureInfo.InvariantCulture);
+
+    /// <summary>A date for a line of detail in a list.</summary>
+    public static string ShortDate(DateTime utc) => utc.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+
+    /// <summary>The full time, for a tooltip on <see cref="ShortDate"/>.</summary>
+    public static string FullTime(DateTime utc) => utc.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture);
 
     public static string SimilarityBadgeClass(decimal percent) => SimilarityBands.Classify(percent) switch
     {
         SimilarityBand.Low => "text-bg-success",
         SimilarityBand.Moderate => "text-bg-warning",
         _ => "text-bg-danger",
+    };
+
+    /// <summary>The fill of a similarity bar; theme.css gives these the bar shades.</summary>
+    public static string SimilarityBarClass(decimal percent) => SimilarityBands.Classify(percent) switch
+    {
+        SimilarityBand.Low => "bg-success",
+        SimilarityBand.Moderate => "bg-warning",
+        _ => "bg-danger",
     };
 
     /// <summary>For a large score figure, where a filled badge would be too heavy.</summary>

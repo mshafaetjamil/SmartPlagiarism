@@ -16,49 +16,29 @@
 
         return $"{size:0.##} {units[unit]}";
     }
+
+    StatTileViewModel[] tiles =
+    [
+        new("Users", Model.TotalUsers.ToString()),
+        new("Submissions", Model.TotalSubmissions.ToString()),
+        new("Stored files", Model.TotalUploadedFiles.ToString(), FormatBytes(Model.TotalStoredBytes)),
+        StatTileViewModel.Similarity("Average similarity", Model.AverageSimilarityPercent),
+    ];
+
+    var largestRole = Model.UsersByRole.Count == 0 ? 0 : Model.UsersByRole.Max(role => role.UserCount);
+    var largestStatus = Model.SubmissionsByAnalysisStatus.Count == 0 ? 0 : Model.SubmissionsByAnalysisStatus.Max(status => status.Count);
 }
 
 <div class="container py-4">
     <h1 class="h3 mb-4">Admin dashboard</h1>
 
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="text-body-secondary small text-uppercase">Users</div>
-                    <div class="display-6">@Model.TotalUsers</div>
-                </div>
+    <div class="row g-3 mb-3">
+        @foreach (var tile in tiles)
+        {
+            <div class="col-6 col-lg-3">
+                <partial name="_StatTile" model="tile" />
             </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="text-body-secondary small text-uppercase">Submissions</div>
-                    <div class="display-6">@Model.TotalSubmissions</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="text-body-secondary small text-uppercase">Stored files</div>
-                    <div class="display-6">@Model.TotalUploadedFiles</div>
-                    <div class="text-body-secondary small">@FormatBytes(Model.TotalStoredBytes)</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="text-body-secondary small text-uppercase">Average similarity</div>
-                    <div class="display-6">
-                        @(Model.AverageSimilarityPercent.HasValue
-                            ? $"{Model.AverageSimilarityPercent.Value:0.00}%"
-                            : "-")
-                    </div>
-                </div>
-            </div>
-        </div>
+        }
     </div>
 
     <div class="row g-3">
@@ -72,8 +52,9 @@
                         @foreach (var roleCount in Model.UsersByRole)
                         {
                             <tr>
-                                <td>@roleCount.Role</td>
-                                <td class="text-end fw-semibold">@roleCount.UserCount</td>
+                                <td class="col-w-6">@roleCount.Role</td>
+                                <td><div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill bg-primary" data-bar-width="@StatusBadge.BarWidth(roleCount.UserCount, largestRole)"></div></div></td>
+                                <td class="text-end fw-semibold col-w-4">@roleCount.UserCount</td>
                             </tr>
                         }
                     </tbody>
@@ -91,8 +72,9 @@
                         @foreach (var statusCount in Model.SubmissionsByAnalysisStatus)
                         {
                             <tr>
-                                <td>@statusCount.Status</td>
-                                <td class="text-end fw-semibold">@statusCount.Count</td>
+                                <td class="col-w-6"><span class="badge @StatusBadge.For(statusCount.Status)">@statusCount.Status</span></td>
+                                <td><div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill bg-primary" data-bar-width="@StatusBadge.BarWidth(statusCount.Count, largestStatus)"></div></div></td>
+                                <td class="text-end fw-semibold col-w-4">@statusCount.Count</td>
                             </tr>
                         }
                     </tbody>

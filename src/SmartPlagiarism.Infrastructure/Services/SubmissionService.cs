@@ -8,6 +8,7 @@ using SmartPlagiarism.Core.DTOs.Submissions;
 using SmartPlagiarism.Core.Entities;
 using SmartPlagiarism.Core.Enums;
 using SmartPlagiarism.Core.Files;
+using SmartPlagiarism.Engine.Matching;
 using SmartPlagiarism.Infrastructure.Data;
 
 namespace SmartPlagiarism.Infrastructure.Services;
@@ -245,7 +246,7 @@ public class SubmissionService : ISubmissionService
             return null;
         }
 
-        return await _context.Submissions
+        var detail = await _context.Submissions
             .AsNoTracking()
             .Where(submission => submission.Id == submissionId)
             .Select(submission => new SubmissionDetailDto(
@@ -267,7 +268,8 @@ public class SubmissionService : ISubmissionService
                         file.OriginalFileName,
                         file.ContentType,
                         file.SizeBytes,
-                        file.Sha256Hash))
+                        file.Sha256Hash,
+                        file.ExtractedText != null ? file.ExtractedText.ExtractionMethod : null))
                     .ToList(),
                 submission.PlagiarismResult != null
                     ? new SubmissionResultDto(
@@ -278,6 +280,56 @@ public class SubmissionService : ISubmissionService
                         submission.PlagiarismResult.Matches.Count)
                     : null))
             .FirstOrDefaultAsync(cancellationToken);
+
+        return detail?.Result is null || viewer.IsStaff
+            ? detail
+            : detail with { Sources = await GetSourcesForStudentAsync(submissionId, cancellationToken) };
+    }
+
+    /// <summary>
+    /// The same sources the student's PDF report lists. Other people's names, and
+    /// archive titles and authors, are left out of the query itself, so this page
+    /// cannot show what it never loaded.
+    /// </summary>
+    private async Task<IReadOnlyList<SubmissionSourceDto>> GetSourcesForStudentAsync(int submissionId, CancellationToken cancellationToken)
+    {
+        var ownerId = await _context.Submissions
+            .AsNoTracking()
+            .Where(submission => submission.Id == submissionId)
+            .Select(submission => submission.StudentProfileId)
+            .FirstAsync(cancellationToken);
+
+        var matches = await _context.MatchedDocuments
+            .AsNoTracking()
+            .Where(match => match.PlagiarismResult.SubmissionId == submissionId && match.MatchedUploadedFileId != null)
+            .OrderBy(match => match.Id)
+            .Select(match => new
+            {
+                OwnFileName = match.UploadedFile.OriginalFileName,
+                Source = new MatchSource(
+                    match.MatchedUploadedFile!.SubmissionId,
+                    match.MatchedUploadedFile.Submission!.Title,
+                    (int?)match.MatchedUploadedFile.Submission!.StudentProfileId,
+                    null,
+                    null,
+                    match.MatchedUploadedFile.Submission!.Course.Code,
+                    (int?)match.MatchedUploadedFile.ArchiveDocument!.Year,
+                    null,
+                    null),
+                match.SimilarityPercent,
+                match.MatchedFragmentsJson,
+            })
+            .ToListAsync(cancellationToken);
+
+        return matches
+            .OrderByDescending(match => match.SimilarityPercent)
+            .Select(match => new SubmissionSourceDto(
+                match.Source.StudentLabel(ownerId),
+                match.OwnFileName,
+                MatchedFragmentSerializer.Deserialize(match.MatchedFragmentsJson).Count,
+                match.SimilarityPercent,
+                match.Source.IsOwnEarlierWorkOf(ownerId)))
+            .ToList();
     }
 
     public async Task<SubmissionFormOptionsDto> GetFormOptionsAsync(CancellationToken cancellationToken = default)

@@ -1,0 +1,11 @@
+@model StatTileViewModel
+<div class="card h-100">
+    <div class="card-body">
+        <div class="stat-tile-label">@Model.Label</div>
+        <div class="stat-tile-value @Model.ValueClass">@Model.Value</div>
+        @if (Model.Note is not null)
+        {
+            <div class="stat-tile-note">@Model.Note</div>
+        }
+    </div>
+</div>

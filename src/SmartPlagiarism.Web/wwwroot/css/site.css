@@ -9,7 +9,7 @@ html {
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem rgba(var(--sp-accent-rgb), 0.55);
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
@@ -44,7 +44,7 @@ html {
 }
 
 .match-fragment {
-  background-color: rgba(255, 193, 7, 0.35);
+  background-color: rgba(217, 150, 31, 0.28);
   color: inherit;
   border-radius: 0.2rem;
   padding: 0 0.1rem;
@@ -52,7 +52,7 @@ html {
 }
 
 .match-fragment:hover {
-  background-color: rgba(255, 193, 7, 0.6);
+  background-color: rgba(217, 150, 31, 0.45);
 }
 
 .match-fragment:focus-visible {
@@ -61,8 +61,8 @@ html {
 }
 
 .match-fragment.is-active {
-  background-color: rgba(220, 53, 69, 0.3);
-  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.55);
+  background-color: rgba(var(--sp-accent-rgb), 0.2);
+  box-shadow: 0 0 0 2px rgba(var(--sp-accent-rgb), 0.6);
 }
 
 /* Horizontal bars on the statistics page. The number beside each bar carries

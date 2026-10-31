@@ -1,8 +1,11 @@
+@using System.Globalization
 @using SmartPlagiarism.Core.Enums
 @using SmartPlagiarism.Web.Models.Analysis
 @model SmartPlagiarism.Core.DTOs.Submissions.SubmissionDetailDto
 @{
     ViewData["Title"] = Model.Title;
+
+    string Dash(decimal percent) => Math.Clamp(percent, 0m, 100m).ToString("0.##", CultureInfo.InvariantCulture);
 }
 
 <div class="container py-4">
@@ -15,97 +18,154 @@
 
     <partial name="_StatusMessage" />
 
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
-        <h1 class="h3 mb-0 me-2">@Model.Title</h1>
-        <span class="badge @StatusBadge.For(Model.AnalysisStatus)">@Model.AnalysisStatus</span>
-        <span class="badge @StatusBadge.For(Model.Status)">@StatusBadge.Label(Model.Status)</span>
+    <header class="report-header d-flex flex-wrap justify-content-between align-items-end gap-3">
+        <div>
+            <div class="report-label">Originality report</div>
+            <h1 class="report-title">@Model.Title</h1>
+            <div class="text-body-secondary mb-2">
+                @Model.CourseCode @Model.CourseTitle &middot; @Model.SemesterName &middot; @Model.Type
+                &middot; Submitted @StatusBadge.ShortDate(Model.SubmittedAtUtc)
+            </div>
+            @StatusBadge.Status(Model.AnalysisStatus, Model.Status)
+        </div>
         @if (Model.AnalysisStatus is AnalysisStatus.Completed or AnalysisStatus.Failed)
         {
-            <a class="btn btn-sm btn-outline-primary ms-auto" asp-action="Report" asp-route-id="@Model.Id">Download report (PDF)</a>
+            <a class="btn btn-report" asp-action="Report" asp-route-id="@Model.Id">Download report (PDF)</a>
         }
-    </div>
+    </header>
 
-    <div class="row g-3">
-        <div class="col-lg-4">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-transparent"><h2 class="h6 mb-0">Details</h2></div>
-                <div class="card-body">
-                    <dl class="row mb-0 small">
-                        <dt class="col-5">Course</dt>
-                        <dd class="col-7">@Model.CourseCode &ndash; @Model.CourseTitle</dd>
-
-                        <dt class="col-5">Semester</dt>
-                        <dd class="col-7">@Model.SemesterName</dd>
-
-                        <dt class="col-5">Type</dt>
-                        <dd class="col-7">@Model.Type</dd>
-
-                        <dt class="col-5">Submitted</dt>
-                        <dd class="col-7">@Model.SubmittedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</dd>
-                    </dl>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-8">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-transparent"><h2 class="h6 mb-0">Originality analysis</h2></div>
-                <div class="card-body">
-                    @if (Model.Result is not null)
-                    {
-                        <div class="d-flex align-items-baseline gap-2 mb-2">
-                            <span class="display-6 fw-semibold @StatusBadge.SimilarityTextClass(Model.Result.OverallSimilarityPercent)">@Model.Result.OverallSimilarityPercent.ToString("0.00")%</span>
-                            <span class="text-body-secondary">overall similarity</span>
-                        </div>
-                        @if (Model.Result.CommonTextPercent > 0)
+    @if (Model.Result is { } result)
+    {
+        <div class="row g-3">
+            <div class="col-lg-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <h2 class="report-card-title mb-3">Overall similarity</h2>
+                        <svg class="report-gauge @StatusBadge.SimilarityTextClass(result.OverallSimilarityPercent)" viewBox="0 0 36 36"
+                             role="img" aria-label="Overall similarity @StatusBadge.FormatPercent(result.OverallSimilarityPercent)">
+                            <circle class="report-gauge-track" cx="18" cy="18" r="15.5" />
+                            <circle class="report-gauge-value" cx="18" cy="18" r="15.5" pathLength="100"
+                                    stroke-dasharray="@Dash(result.OverallSimilarityPercent) 100" transform="rotate(-90 18 18)" />
+                            <text class="report-gauge-number" x="18" y="18" text-anchor="middle" dominant-baseline="central">@StatusBadge.FormatPercent(result.OverallSimilarityPercent)</text>
+                        </svg>
+                        <div class="report-band @StatusBadge.SimilarityTextClass(result.OverallSimilarityPercent)">@StatusBadge.SimilarityBandLabel(result.OverallSimilarityPercent)</div>
+                        <p class="small text-body-secondary mt-2 mb-0">
+                            How much of your work was also found in other documents.
+                            @if (Model.Status == SubmissionStatus.PendingReview)
+                            {
+                                <span>Your course teacher will review it.</span>
+                            }
+                        </p>
+                        @if (result.CommonTextPercent > 0)
                         {
-                            <p class="small text-body-secondary mb-1">
-                                A further @Model.Result.CommonTextPercent.ToString("0.00")% is text most of the course shares - a cover page,
+                            <p class="small text-body-secondary mt-2 mb-0">
+                                A further @StatusBadge.FormatPercent(result.CommonTextPercent) is text most of the course shares - a cover page,
                                 a declaration - and is not counted.
                             </p>
                         }
-                        <p class="text-body-secondary small mb-0">
-                            @Model.Result.MatchCount matched source(s).
-                            Analysed @Model.Result.AnalyzedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC
-                            by engine @Model.Result.EngineVersion.
-                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="card h-100">
+                    <div class="card-body pb-0 flex-grow-0">
+                        <h2 class="report-card-title mb-0">Matched sources</h2>
+                    </div>
+                    @if (Model.Sources.Count == 0)
+                    {
+                        <div class="card-body empty-state">Your work shares no text with any other document.</div>
                     }
                     else
                     {
-                        @switch (Model.AnalysisStatus)
-                        {
-                            case AnalysisStatus.Queued:
-                                <p class="text-body-secondary mb-0">
-                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                    Analysis pending &mdash; this submission is waiting in the queue.
-                                </p>
-                                break;
-                            case AnalysisStatus.Processing:
-                                <p class="text-body-secondary mb-0">
-                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                    Analysis in progress.
-                                </p>
-                                break;
-                            case AnalysisStatus.Failed:
-                                <p class="text-danger mb-1">Analysis failed.</p>
-                                @if (!string.IsNullOrWhiteSpace(Model.AnalysisError))
-                                {
-                                    <p class="small mb-1">@Model.AnalysisError</p>
-                                }
-                                <p class="text-body-secondary small mb-0">Your teacher can re-run it.</p>
-                                break;
-                            default:
-                                <p class="text-body-secondary mb-0">Analysis pending.</p>
-                                break;
-                        }
+                        <div class="table-responsive">
+                            <table class="table mb-0 align-middle">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Source</th>
+                                        <th scope="col" class="text-end">Passages</th>
+                                        <th scope="col" title="How much of your work lies in passages found in this source">Share</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var source in Model.Sources)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @source.Label
+                                                <span class="list-meta">In @source.OwnFileName</span>
+                                            </td>
+                                            @* A byte-for-byte copy matches as a whole file, with no passages to count. *@
+                                            <td class="text-end">@(source.PassageCount == 0 ? "-" : source.PassageCount.ToString())</td>
+                                            <td>
+                                                @if (source.IsOwnEarlierWork)
+                                                {
+                                                    <span class="text-body-secondary">@StatusBadge.FormatPercent(source.SimilarityPercent)</span>
+                                                }
+                                                else
+                                                {
+                                                    @StatusBadge.SimilarityBar(source.SimilarityPercent)
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     }
                 </div>
             </div>
         </div>
-    </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <h2 class="report-card-title">Overall similarity</h2>
+                @switch (Model.AnalysisStatus)
+                {
+                    case AnalysisStatus.Queued:
+                        <p class="text-body-secondary mb-0">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Analysis pending &mdash; this submission is waiting in the queue.
+                        </p>
+                        break;
+                    case AnalysisStatus.Processing:
+                        <p class="text-body-secondary mb-0">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Analysis in progress.
+                        </p>
+                        break;
+                    case AnalysisStatus.Failed:
+                        <p class="text-danger mb-1">Analysis failed.</p>
+                        @if (!string.IsNullOrWhiteSpace(Model.AnalysisError))
+                        {
+                            <p class="small mb-1">@Model.AnalysisError</p>
+                        }
+                        <p class="text-body-secondary small mb-0">Your teacher can re-run it.</p>
+                        break;
+                    default:
+                        <p class="text-body-secondary mb-0">Analysis pending.</p>
+                        break;
+                }
+            </div>
+        </div>
+    }
 
-    <div class="card border-0 shadow-sm mt-3">
-        <div class="card-header bg-transparent"><h2 class="h6 mb-0">Files</h2></div>
+    @if (!string.IsNullOrWhiteSpace(Model.TeacherComment))
+    {
+        <div class="card mt-3">
+            <div class="card-body">
+                <h2 class="report-card-title">Teacher comment</h2>
+                <p class="mb-0">@Model.TeacherComment</p>
+            </div>
+        </div>
+    }
+
+    <div class="card mt-3">
+        <div class="card-body pb-0">
+            <h2 class="report-card-title mb-0">Files examined</h2>
+        </div>
         <div class="table-responsive">
             <table class="table mb-0 align-middle">
                 <thead>
@@ -113,35 +173,29 @@
                         <th scope="col">File</th>
                         <th scope="col">Type</th>
                         <th scope="col" class="text-end">Size</th>
-                        <th scope="col">SHA-256</th>
+                        <th scope="col">Read by</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var file in Model.Files)
                     {
                         <tr>
-                            <td>@file.OriginalFileName</td>
-                            <td class="small text-body-secondary">@file.ContentType</td>
-                            <td class="text-end">@StatusBadge.FormatBytes(file.SizeBytes)</td>
-                            <td>
-                                <code class="small" title="@file.Sha256Hash">@file.Sha256Hash[..16]&hellip;</code>
-                            </td>
+                            <td title="SHA-256: @file.Sha256Hash">@file.OriginalFileName</td>
+                            <td>@System.IO.Path.GetExtension(file.OriginalFileName).TrimStart('.').ToUpperInvariant()</td>
+                            <td class="text-end text-nowrap">@StatusBadge.FormatBytes(file.SizeBytes)</td>
+                            <td>@StatusBadge.Label(file.ReadBy)</td>
                         </tr>
                     }
                 </tbody>
             </table>
         </div>
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(Model.TeacherComment))
-    {
-        <div class="card border-0 shadow-sm mt-3">
-            <div class="card-header bg-transparent"><h2 class="h6 mb-0">Teacher comment</h2></div>
-            <div class="card-body">
-                <p class="mb-0">@Model.TeacherComment</p>
+        @if (Model.Result is { } analysed)
+        {
+            <div class="card-body pt-2 small text-body-secondary">
+                Analysed @StatusBadge.FullTime(analysed.AnalyzedAtUtc) by engine @analysed.EngineVersion.
             </div>
-        </div>
-    }
+        }
+    </div>
 
     @{
         var poller = AnalysisPollerViewModel.For(

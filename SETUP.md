@@ -364,3 +364,37 @@ empty database (with fresh demo accounts) and none of machine A's uploaded files
 | An error page shows a **Reference** | It is the request's trace id. Search the log files for it: `grep <reference> src/SmartPlagiarism.Web/App_Data/logs/*.json`. |
 | Where are the logs? | The console, and `src/SmartPlagiarism.Web/App_Data/logs/` (one JSON file per day, kept 30 days). Levels are under `Serilog` in `appsettings.json`. |
 | Every file shows as modified right after cloning | An old clone made before `.gitattributes` existed. Re-clone, or run `git add --renormalize .`. |
+
+---
+
+## 11. Setting up for a new university
+
+Each university runs its own copy of the system, so its accounts, submissions
+and archive stay entirely separate from any other university's. Matching also
+stays within a copy: one university's students are not checked against
+another's work.
+
+A copy differs only in its settings. Set them in `appsettings.Production.json`
+or as environment variables, where `:` becomes `__`:
+
+| Environment variable | What to give it |
+| --- | --- |
+| `Reports__InstitutionName` | The name printed on every report, e.g. `Example University` |
+| `ConnectionStrings__DefaultConnection` | That university's own database |
+| `FileStorage__RootPath` | That university's own folder for uploaded files |
+| `LogFile__Path` | Its own log files, e.g. `/var/log/smartplagiarism/app-.json` |
+
+The student and department on a report come from the database, so they need no
+setting.
+
+Outside Development the app does not set up its own database, so create the
+schema first:
+
+```bash
+dotnet ef database update -p src/SmartPlagiarism.Infrastructure -s src/SmartPlagiarism.Web --connection "<that university's connection string>"
+```
+
+**The first admin account:** seeding runs in Development only and creates demo
+accounts with published passwords, so never use it for a real university. There
+is no built-in command yet for creating the first admin of a new copy; until
+there is, it has to be added to the database by hand.
