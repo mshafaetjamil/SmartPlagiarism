@@ -1,0 +1,901 @@
+/* The site's look, as a layer over Bootstrap 5.3: loaded after bootstrap.css and
+   before site.css. --bs-body-bg stays white on purpose, because Bootstrap paints
+   cards, inputs, tables, dropdowns and the pager with it; only <body> takes the
+   page colour. */
+
+/* Self-hosted, since the Content-Security-Policy has font-src 'self'. The Latin
+   files carry no Bangla, which falls through to Noto Sans Bengali; its
+   unicode-range means a page with no Bangla never downloads it. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../fonts/source-serif-4-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Noto Sans Bengali";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../fonts/noto-sans-bengali-bengali-wght-normal.woff2") format("woff2");
+  unicode-range: U+0951-0952, U+0964-0965, U+0980-09FE, U+1CD0, U+1CD2, U+1CD5-1CD6, U+1CD8, U+1CE1, U+1CEA, U+1CED, U+1CF2, U+1CF5-1CF7, U+200C-200D, U+20B9, U+25CC, U+A8F1;
+}
+
+:root {
+  --sp-navy: #0b2545;
+  --sp-navy-active: #13315c;
+  --sp-sidebar-text: #c9d6ea;
+  --sp-sidebar-muted: #8ea0bc;
+  --sp-accent: #3b5bdb;
+  --sp-accent-rgb: 59, 91, 219;
+  --sp-accent-hover: #2b44a8;
+  --sp-page: #f4f6fa;
+  --sp-border: #e2e6ee;
+  --sp-font-serif: "Source Serif 4", "Noto Sans Bengali", Georgia, serif;
+
+  --bs-font-sans-serif: "Inter", "Noto Sans Bengali", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --bs-body-color: #172033;
+  --bs-body-color-rgb: 23, 32, 51;
+  --bs-emphasis-color: #172033;
+  --bs-emphasis-color-rgb: 23, 32, 51;
+  --bs-heading-color: #172033;
+  --bs-secondary-color: #5a6474;
+  --bs-secondary-color-rgb: 90, 100, 116;
+  --bs-tertiary-color: #5a6474;
+  --bs-tertiary-color-rgb: 90, 100, 116;
+  --bs-secondary-bg: #e9edf4;
+  --bs-secondary-bg-rgb: 233, 237, 244;
+  --bs-tertiary-bg: #eef1f6;
+  --bs-tertiary-bg-rgb: 238, 241, 246;
+  --bs-border-color: var(--sp-border);
+
+  --bs-primary: var(--sp-accent);
+  --bs-primary-rgb: var(--sp-accent-rgb);
+  --bs-primary-text-emphasis: var(--sp-accent-hover);
+  --bs-primary-bg-subtle: #e7ecfb;
+  --bs-primary-border-subtle: #c5d0f5;
+  --bs-link-color: var(--sp-accent);
+  --bs-link-color-rgb: var(--sp-accent-rgb);
+  --bs-link-hover-color: var(--sp-accent-hover);
+  --bs-link-hover-color-rgb: 43, 68, 168;
+  --bs-focus-ring-color: rgba(var(--sp-accent-rgb), 0.25);
+
+  /* Risk colours. Text and fills differ: a bar's colour is too light to read as
+     text on white, so the variables hold the text colour, and .bg-* below swaps
+     in the fill. Which band a score falls in is decided by SimilarityBands. */
+  --bs-success: #136c3a;
+  --bs-success-rgb: 19, 108, 58;
+  --bs-success-text-emphasis: #136c3a;
+  --bs-success-bg-subtle: #e3f4ea;
+  --bs-success-border-subtle: #bfe3cd;
+  --bs-warning: #8a5a0b;
+  --bs-warning-rgb: 138, 90, 11;
+  --bs-warning-text-emphasis: #8a5a0b;
+  --bs-warning-bg-subtle: #fdf1dc;
+  --bs-warning-border-subtle: #f3dcae;
+  --bs-danger: #b42318;
+  --bs-danger-rgb: 180, 35, 24;
+  --bs-danger-text-emphasis: #b42318;
+  --bs-danger-bg-subtle: #fde7e7;
+  --bs-danger-border-subtle: #f6c6c6;
+  --bs-info: var(--sp-accent);
+  --bs-info-rgb: var(--sp-accent-rgb);
+  --bs-info-text-emphasis: var(--sp-accent-hover);
+  --bs-info-bg-subtle: #e7ecfb;
+  --bs-info-border-subtle: #c5d0f5;
+  --bs-form-invalid-color: #b42318;
+  --bs-form-invalid-border-color: #b42318;
+  --bs-form-valid-color: #136c3a;
+  --bs-form-valid-border-color: #136c3a;
+}
+
+body {
+  background-color: var(--sp-page);
+}
+
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+  font-weight: 600;
+}
+
+.bg-success {
+  --bs-success-rgb: 47, 158, 91;
+}
+
+.bg-warning {
+  --bs-warning-rgb: 217, 150, 31;
+}
+
+.bg-danger {
+  --bs-danger-rgb: 214, 69, 69;
+}
+
+/* Bootstrap compiles its button and form colours to literal hex values, so
+   changing --bs-primary alone does not reach them. */
+.btn-primary {
+  --bs-btn-bg: var(--sp-accent);
+  --bs-btn-border-color: var(--sp-accent);
+  --bs-btn-hover-bg: var(--sp-accent-hover);
+  --bs-btn-hover-border-color: var(--sp-accent-hover);
+  --bs-btn-focus-shadow-rgb: var(--sp-accent-rgb);
+  --bs-btn-active-bg: var(--sp-accent-hover);
+  --bs-btn-active-border-color: var(--sp-accent-hover);
+  --bs-btn-disabled-bg: var(--sp-accent);
+  --bs-btn-disabled-border-color: var(--sp-accent);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--sp-accent);
+  --bs-btn-border-color: var(--sp-accent);
+  --bs-btn-hover-bg: var(--sp-accent);
+  --bs-btn-hover-border-color: var(--sp-accent);
+  --bs-btn-focus-shadow-rgb: var(--sp-accent-rgb);
+  --bs-btn-active-bg: var(--sp-accent-hover);
+  --bs-btn-active-border-color: var(--sp-accent-hover);
+  --bs-btn-disabled-color: var(--sp-accent);
+  --bs-btn-disabled-border-color: var(--sp-accent);
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: #172033;
+  --bs-btn-bg: #fff;
+  --bs-btn-border-color: #cfd5e1;
+  --bs-btn-hover-color: #172033;
+  --bs-btn-hover-bg: var(--sp-page);
+  --bs-btn-hover-border-color: #b8c0cf;
+  --bs-btn-active-color: #172033;
+  --bs-btn-active-bg: var(--bs-secondary-bg);
+  --bs-btn-active-border-color: #b8c0cf;
+  --bs-btn-disabled-color: var(--bs-secondary-color);
+  --bs-btn-disabled-border-color: var(--sp-border);
+}
+
+/* Filled and outlined decision buttons use the darker text shade, on which white
+   lettering stays readable. */
+.btn-success {
+  --bs-btn-bg: #136c3a;
+  --bs-btn-border-color: #136c3a;
+  --bs-btn-hover-bg: #0f5a30;
+  --bs-btn-hover-border-color: #0f5a30;
+  --bs-btn-active-bg: #0f5a30;
+  --bs-btn-active-border-color: #0f5a30;
+  --bs-btn-disabled-bg: #136c3a;
+  --bs-btn-disabled-border-color: #136c3a;
+}
+
+.btn-danger {
+  --bs-btn-bg: #b42318;
+  --bs-btn-border-color: #b42318;
+  --bs-btn-hover-bg: #961d14;
+  --bs-btn-hover-border-color: #961d14;
+  --bs-btn-active-bg: #961d14;
+  --bs-btn-active-border-color: #961d14;
+  --bs-btn-disabled-bg: #b42318;
+  --bs-btn-disabled-border-color: #b42318;
+}
+
+.btn-outline-success {
+  --bs-btn-color: #136c3a;
+  --bs-btn-border-color: #136c3a;
+  --bs-btn-hover-bg: #136c3a;
+  --bs-btn-hover-border-color: #136c3a;
+  --bs-btn-active-bg: #0f5a30;
+  --bs-btn-active-border-color: #0f5a30;
+}
+
+.btn-outline-danger {
+  --bs-btn-color: #b42318;
+  --bs-btn-border-color: #b42318;
+  --bs-btn-hover-bg: #b42318;
+  --bs-btn-hover-border-color: #b42318;
+  --bs-btn-active-bg: #961d14;
+  --bs-btn-active-border-color: #961d14;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--sp-accent);
+  box-shadow: 0 0 0 0.2rem rgba(var(--sp-accent-rgb), 0.2);
+}
+
+.form-check-input:focus {
+  border-color: var(--sp-accent);
+}
+
+.form-check-input:checked {
+  background-color: var(--sp-accent);
+  border-color: var(--sp-accent);
+}
+
+/* White cards with a hairline border and no shadow, whichever of Bootstrap's
+   shadow or borderless utilities a view put on them. */
+.card {
+  --bs-card-border-radius: 12px;
+  --bs-card-inner-border-radius: 11px;
+  --bs-card-border-color: var(--sp-border);
+  --bs-card-cap-bg: #fff;
+}
+
+.card.border-0 {
+  border: var(--bs-card-border-width) solid var(--bs-card-border-color) !important;
+}
+
+.card.shadow-sm,
+.card.shadow {
+  box-shadow: none !important;
+}
+
+/* The page frame: sidebar and content side by side from the lg breakpoint, stacked
+   below it, where the sidebar becomes an off-canvas panel. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-sidebar-panel {
+  --bs-offcanvas-width: 17rem;
+  --bs-offcanvas-bg: var(--sp-navy);
+  --bs-offcanvas-color: var(--sp-sidebar-text);
+}
+
+.app-sidebar .offcanvas-body {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  gap: 1.5rem;
+  overflow-y: auto;
+  padding: 1.25rem 0.875rem 1rem;
+}
+
+@media (min-width: 992px) {
+  .app-shell {
+    flex-direction: row;
+  }
+
+  .app-sidebar {
+    flex: 0 0 15.5rem;
+    background-color: var(--sp-navy);
+  }
+
+  /* The navy runs the full length of the page; the menu stays in view within it. */
+  .app-sidebar-panel {
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .app-sidebar + .app-main .container {
+    padding-inline: 2rem;
+  }
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.app-brand:hover {
+  color: #fff;
+}
+
+.app-brand svg {
+  color: #9db4e8;
+  flex-shrink: 0;
+}
+
+.app-sidebar-brand {
+  padding: 0 0.625rem;
+  font-size: 1.05rem;
+}
+
+.app-nav-heading {
+  margin: 0 0 0.5rem;
+  padding: 0 0.625rem;
+  color: var(--sp-sidebar-muted);
+  font-size: 0.8rem;
+}
+
+.app-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-nav-link {
+  display: block;
+  padding: 0.5rem 0.625rem;
+  border-radius: 8px;
+  color: var(--sp-sidebar-text);
+  font-size: 0.925rem;
+  text-decoration: none;
+}
+
+.app-nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.app-nav-link.active {
+  background-color: var(--sp-navy-active);
+  color: #fff;
+  font-weight: 600;
+}
+
+.app-sidebar a:focus-visible,
+.app-sidebar button:focus-visible,
+.app-mobilebar button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.app-sidebar-footer {
+  margin-top: auto;
+  padding: 0.875rem 0.625rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.85rem;
+}
+
+.app-sidebar-email {
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+
+.app-sidebar-role {
+  color: var(--sp-sidebar-muted);
+}
+
+.app-sidebar-action {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sp-sidebar-text);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.app-sidebar-action:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.app-mobilebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 1rem;
+  background-color: var(--sp-navy);
+}
+
+.app-menu-button {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: none;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.app-topbar {
+  --bs-navbar-color: var(--sp-sidebar-text);
+  --bs-navbar-hover-color: #fff;
+  --bs-navbar-active-color: #fff;
+  --bs-navbar-brand-color: #fff;
+  --bs-navbar-brand-hover-color: #fff;
+  background-color: var(--sp-navy);
+}
+
+.app-footer {
+  border-top: 1px solid var(--sp-border);
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+}
+
+/* The sign-in page: a brand panel beside the form, or above it on a phone. */
+.auth-split {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.auth-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem 1rem;
+  background-color: var(--sp-navy);
+  color: var(--sp-sidebar-text);
+}
+
+.auth-brand {
+  font-size: 1.15rem;
+}
+
+.auth-headline {
+  margin: 0;
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.auth-points {
+  display: grid;
+  gap: 0.625rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-points li {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: #e6edf8;
+}
+
+.auth-points svg {
+  color: #9db4e8;
+  flex-shrink: 0;
+}
+
+.auth-form {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 24rem;
+}
+
+@media (min-width: 992px) {
+  .auth-split {
+    flex-direction: row;
+  }
+
+  .auth-panel {
+    flex: 0 0 50%;
+    padding: 3.5rem;
+  }
+
+  .auth-pitch {
+    margin-block: auto;
+  }
+
+  .auth-headline {
+    font-size: 2.5rem;
+  }
+
+  .auth-form {
+    flex: 1 1 50%;
+    align-items: center;
+    padding: 3rem;
+  }
+}
+
+/* Statuses are soft-tinted pills. Bootstrap's text-bg-* utilities are themselves
+   !important, so these have to be too; StatusBadge and the views keep using them. */
+.badge {
+  --bs-badge-padding-x: 0.65em;
+  --bs-badge-padding-y: 0.35em;
+  --bs-badge-font-weight: 500;
+  --bs-badge-border-radius: 50rem;
+}
+
+.badge.text-bg-success {
+  background-color: var(--bs-success-bg-subtle) !important;
+  color: #136c3a !important;
+}
+
+.badge.text-bg-warning {
+  background-color: var(--bs-warning-bg-subtle) !important;
+  color: #8a5a0b !important;
+}
+
+.badge.text-bg-danger {
+  background-color: var(--bs-danger-bg-subtle) !important;
+  color: #b42318 !important;
+}
+
+.badge.text-bg-info {
+  background-color: var(--bs-info-bg-subtle) !important;
+  color: var(--sp-accent-hover) !important;
+}
+
+.badge.text-bg-secondary {
+  background-color: var(--bs-secondary-bg) !important;
+  color: #4a5363 !important;
+}
+
+.badge.text-bg-dark {
+  background-color: #dce3ee !important;
+  color: var(--sp-navy) !important;
+}
+
+/* A score as a bar with its number beside it: StatusBadge.SimilarityBar. */
+.similarity-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 9rem;
+}
+
+.similarity-bar .stat-bar {
+  flex: 1 1 auto;
+}
+
+.similarity-bar-value {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Tables. Cells are see-through so a table never squares off its card's rounded
+   corners. */
+.table {
+  --bs-table-bg: transparent;
+}
+
+.table > thead th {
+  color: var(--bs-secondary-color);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.card > .table > :not(caption) > * > *,
+.card > .table-responsive > .table > :not(caption) > * > * {
+  padding: 0.75rem;
+}
+
+.card > .table > :not(caption) > * > :first-child,
+.card > .table-responsive > .table > :not(caption) > * > :first-child {
+  padding-left: 1rem;
+}
+
+.card > .table > :not(caption) > * > :last-child,
+.card > .table-responsive > .table > :not(caption) > * > :last-child {
+  padding-right: 1rem;
+}
+
+.card > .table > tbody > tr:last-child > *,
+.card > .table-responsive > .table > tbody > tr:last-child > * {
+  border-bottom-width: 0;
+}
+
+/* Without this, a visually-hidden column heading is positioned against the card,
+   out of the wrapper's reach, and makes the whole page scroll sideways on a phone. */
+.table-responsive {
+  position: relative;
+}
+
+/* The pager. */
+.pagination {
+  --bs-pagination-color: var(--bs-body-color);
+  --bs-pagination-hover-color: var(--bs-body-color);
+  --bs-pagination-hover-bg: var(--sp-page);
+  --bs-pagination-focus-color: var(--bs-body-color);
+  --bs-pagination-focus-bg: var(--sp-page);
+  --bs-pagination-focus-box-shadow: 0 0 0 0.2rem rgba(var(--sp-accent-rgb), 0.25);
+  --bs-pagination-active-bg: var(--sp-accent);
+  --bs-pagination-active-border-color: var(--sp-accent);
+  --bs-pagination-disabled-color: var(--bs-secondary-color);
+  --bs-pagination-disabled-bg: #fff;
+  --bs-pagination-disabled-border-color: var(--sp-border);
+}
+
+.pagination-sm {
+  --bs-pagination-border-radius: 8px;
+  --bs-pagination-padding-x: 0.75rem;
+  --bs-pagination-padding-y: 0.375rem;
+}
+
+/* A list or panel with nothing in it: a card body or a table cell. */
+.empty-state {
+  padding: 2.5rem 1rem;
+  color: var(--bs-secondary-color);
+  text-align: center;
+}
+
+.empty-state::before {
+  content: "";
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  margin: 0 auto 0.625rem;
+  background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238ea0bc' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M3 13h5l1.5 3h5l1.5-3h5'/%3e%3cpath d='M5.5 5h13L21 13v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5l2.5-8Z'/%3e%3c/svg%3e") center / contain no-repeat;
+}
+
+.card > .table td.empty-state,
+.card > .table-responsive > .table td.empty-state {
+  padding: 2.5rem 1rem;
+}
+
+/* A headline figure on a dashboard: _StatTile. */
+.stat-tile-label {
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+}
+
+.stat-tile-value {
+  font-size: 1.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.stat-tile-note {
+  color: var(--bs-secondary-color);
+  font-size: 0.8rem;
+}
+
+/* A row's main link and the line of detail under it. */
+.list-title {
+  color: var(--bs-body-color);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.list-title:hover {
+  color: var(--sp-accent-hover);
+  text-decoration: underline;
+}
+
+.list-meta {
+  display: block;
+  color: var(--bs-secondary-color);
+  font-size: 0.8125rem;
+}
+
+.table > thead a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.table > thead a:hover {
+  color: var(--bs-body-color);
+  text-decoration: underline;
+}
+
+.status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.progress {
+  --bs-progress-bar-bg: var(--sp-accent);
+}
+
+/* Statistics: the month columns, the band stack and the file-reading ring are SVG
+   or data-bar-width bars, since the policy allows no style attributes. */
+.chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.chart-bar {
+  fill: var(--sp-accent);
+}
+
+.chart-label {
+  fill: var(--bs-secondary-color);
+  font-size: 10px;
+}
+
+.chart-count {
+  fill: var(--bs-body-color);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.chart-details summary {
+  color: var(--bs-secondary-color);
+  cursor: pointer;
+  font-size: 0.8125rem;
+}
+
+.band-stack {
+  display: flex;
+  height: 0.75rem;
+  overflow: hidden;
+  border-radius: 0.375rem;
+  background-color: var(--bs-secondary-bg);
+}
+
+.band-stack > div {
+  height: 100%;
+}
+
+.chart-legend {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  font-size: 0.875rem;
+  list-style: none;
+}
+
+.chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chart-legend-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.legend-dot {
+  flex-shrink: 0;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+}
+
+.chart-tone-0 {
+  --sp-chart-tone: var(--sp-accent);
+}
+
+.chart-tone-1 {
+  --sp-chart-tone: #8fa3ec;
+}
+
+.chart-tone-2 {
+  --sp-chart-tone: var(--sp-navy);
+}
+
+.legend-dot.chart-tone-0,
+.legend-dot.chart-tone-1,
+.legend-dot.chart-tone-2 {
+  background-color: var(--sp-chart-tone);
+}
+
+.ring-segment {
+  fill: none;
+  stroke: var(--sp-chart-tone);
+  stroke-width: 6;
+}
+
+.ring-chart {
+  flex-shrink: 0;
+  width: 6.5rem;
+}
+
+/* The upload page. */
+.upload-input {
+  padding: 1.25rem;
+  border: 1.5px dashed #b8c0cf;
+  background-color: var(--sp-page);
+}
+
+.upload-steps {
+  display: grid;
+  gap: 0.875rem;
+  margin: 0;
+  padding: 0;
+  font-size: 0.9rem;
+  list-style: none;
+}
+
+.upload-steps strong {
+  display: block;
+  font-weight: 600;
+}
+
+/* The student's result page, in the formal institutional style it shares with the
+   PDF report. */
+.report-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #b8860b;
+}
+
+.report-label {
+  margin-bottom: 0.25rem;
+  color: #8a6a10;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.report-title {
+  margin-bottom: 0.25rem;
+  font-family: var(--sp-font-serif);
+  font-size: 2rem;
+}
+
+.report-card-title {
+  font-family: var(--sp-font-serif);
+  font-size: 1.15rem;
+}
+
+.btn-report {
+  --bs-btn-color: #2e2a6b;
+  --bs-btn-bg: #fff;
+  --bs-btn-border-color: #2e2a6b;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #2e2a6b;
+  --bs-btn-hover-border-color: #2e2a6b;
+  --bs-btn-focus-shadow-rgb: 46, 42, 107;
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #231f55;
+  --bs-btn-active-border-color: #231f55;
+}
+
+/* stroke follows the band's text colour: StatusBadge.SimilarityTextClass. */
+.report-gauge {
+  display: block;
+  width: 11rem;
+  max-width: 100%;
+  margin: 0 auto 0.75rem;
+}
+
+.report-gauge-track {
+  fill: none;
+  stroke: #ecebe4;
+  stroke-width: 3.25;
+}
+
+.report-gauge-value {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.25;
+}
+
+.report-gauge-number {
+  fill: var(--bs-body-color);
+  font-size: 5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.report-band {
+  font-weight: 600;
+}
+
+/* The match viewer's labels. */
+.pane-label {
+  color: var(--bs-secondary-color);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}

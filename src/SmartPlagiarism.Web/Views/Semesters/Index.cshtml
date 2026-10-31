@@ -12,35 +12,37 @@
     <partial name="_StatusMessage" />
 
     <div class="card border-0 shadow-sm">
-        <table class="table mb-0 align-middle">
-            <thead>
-                <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Starts</th>
-                    <th scope="col">Ends</th>
-                    <th scope="col" class="text-end">Submissions</th>
-                    <th scope="col"><span class="visually-hidden">Actions</span></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var semester in Model.Items)
-                {
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead>
                     <tr>
-                        <td class="fw-semibold">@semester.Name</td>
-                        <td>@semester.StartDateUtc.ToString("yyyy-MM-dd")</td>
-                        <td>@semester.EndDateUtc.ToString("yyyy-MM-dd")</td>
-                        <td class="text-end">@semester.SubmissionCount</td>
-                        <td class="text-end text-nowrap">
-                            <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@semester.Id">Edit</a>
-                            <form method="post" asp-action="Delete" asp-route-id="@semester.Id" class="d-inline"
-                                  data-confirm="Delete semester @semester.Name?">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                            </form>
-                        </td>
+                        <th scope="col">Name</th>
+                        <th scope="col">Starts</th>
+                        <th scope="col">Ends</th>
+                        <th scope="col" class="text-end">Submissions</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var semester in Model.Items)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@semester.Name</td>
+                            <td>@semester.StartDateUtc.ToString("yyyy-MM-dd")</td>
+                            <td>@semester.EndDateUtc.ToString("yyyy-MM-dd")</td>
+                            <td class="text-end">@semester.SubmissionCount</td>
+                            <td class="text-end text-nowrap">
+                                <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@semester.Id">Edit</a>
+                                <form method="post" asp-action="Delete" asp-route-id="@semester.Id" class="d-inline"
+                                      data-confirm="Delete semester @semester.Name?">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <partial name="_Pager" model="PagerViewModel.For(nameof(SemestersController.Index), Model)" />

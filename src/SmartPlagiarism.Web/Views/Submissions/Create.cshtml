@@ -6,11 +6,11 @@
 }
 
 <div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <h1 class="h3 mb-4">New submission</h1>
+    <h1 class="h3 mb-4">New submission</h1>
 
-            <div class="card border-0 shadow-sm">
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card">
                 <div class="card-body p-4">
                     <form asp-action="Create" method="post" enctype="multipart/form-data">
                         <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
@@ -56,7 +56,7 @@
 
                         <div class="mb-4">
                             <label asp-for="Files" class="form-label"></label>
-                            <input asp-for="Files" type="file" class="form-control" multiple accept="@acceptList" />
+                            <input asp-for="Files" type="file" class="form-control upload-input" multiple accept="@acceptList" />
                             <div class="form-text">
                                 @AllowedFileFormats.DisplayList only.
                                 Up to @UploadConstraints.MaxFilesPerSubmission files,
@@ -70,6 +70,28 @@
                             <a class="btn btn-outline-secondary" asp-action="Index">Cancel</a>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h6 mb-3">What happens next</h2>
+                    <ul class="upload-steps">
+                        <li>
+                            <strong>Your files are read</strong>
+                            Bangla and English, including scanned pages and older Bijoy-encoded documents.
+                        </li>
+                        <li>
+                            <strong>They are checked</strong>
+                            Against earlier submissions and past years' archive. This runs in the background, so you can leave the page.
+                        </li>
+                        <li>
+                            <strong>You see the result</strong>
+                            Your overall similarity and matched sources appear here, and your course teacher reviews them.
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>

@@ -26,52 +26,54 @@
     </form>
 
     <div class="card border-0 shadow-sm">
-        <table class="table mb-0 align-middle">
-            <thead>
-                <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Key starts with</th>
-                    <th scope="col">Created</th>
-                    <th scope="col">Last used</th>
-                    <th scope="col">Status</th>
-                    <th scope="col"><span class="visually-hidden">Actions</span></th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model.TotalCount == 0)
-                {
-                    <tr><td colspan="6" class="text-center text-body-secondary py-4">No keys yet.</td></tr>
-                }
-                @foreach (var key in Model.Items)
-                {
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead>
                     <tr>
-                        <td>@key.Name</td>
-                        <td><code>@key.Prefix&hellip;</code></td>
-                        <td class="small">@key.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
-                        <td class="small">@(key.LastUsedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "Never")</td>
-                        <td>
-                            @if (key.RevokedAtUtc is { } revoked)
-                            {
-                                <span class="badge text-bg-secondary" title="Revoked @revoked.ToString("yyyy-MM-dd HH:mm") UTC">Revoked</span>
-                            }
-                            else
-                            {
-                                <span class="badge text-bg-success">Active</span>
-                            }
-                        </td>
-                        <td class="text-end">
-                            @if (key.RevokedAtUtc is null)
-                            {
-                                <form method="post" asp-action="Revoke" asp-route-id="@key.Id" class="d-inline"
-                                      data-confirm="Revoke the key for @key.Name? Every request using it will be refused.">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
-                                </form>
-                            }
-                        </td>
+                        <th scope="col">Name</th>
+                        <th scope="col">Key starts with</th>
+                        <th scope="col">Created</th>
+                        <th scope="col">Last used</th>
+                        <th scope="col">Status</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @if (Model.TotalCount == 0)
+                    {
+                        <tr><td colspan="6" class="empty-state">No keys yet.</td></tr>
+                    }
+                    @foreach (var key in Model.Items)
+                    {
+                        <tr>
+                            <td>@key.Name</td>
+                            <td><code>@key.Prefix&hellip;</code></td>
+                            <td class="small">@key.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                            <td class="small">@(key.LastUsedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "Never")</td>
+                            <td>
+                                @if (key.RevokedAtUtc is { } revoked)
+                                {
+                                    <span class="badge text-bg-secondary" title="Revoked @revoked.ToString("yyyy-MM-dd HH:mm") UTC">Revoked</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-success">Active</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                @if (key.RevokedAtUtc is null)
+                                {
+                                    <form method="post" asp-action="Revoke" asp-route-id="@key.Id" class="d-inline"
+                                          data-confirm="Revoke the key for @key.Name? Every request using it will be refused.">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <partial name="_Pager" model="PagerViewModel.For(nameof(ApiKeysController.Index), Model)" />

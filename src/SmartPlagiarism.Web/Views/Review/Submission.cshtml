@@ -65,11 +65,14 @@
                 <div class="card-body">
                     @if (Model.Result is { } result)
                     {
-                        <div class="d-flex align-items-baseline gap-2 mb-1">
-                            <span class="display-6 fw-semibold @StatusBadge.SimilarityTextClass(result.OverallSimilarityPercent)">
-                                @result.OverallSimilarityPercent.ToString("0.00")%
+                        <div class="d-flex align-items-baseline gap-2 mb-2">
+                            <span class="stat-tile-value @StatusBadge.SimilarityTextClass(result.OverallSimilarityPercent)">
+                                @StatusBadge.FormatPercent(result.OverallSimilarityPercent)
                             </span>
-                            <span class="text-body-secondary">overall similarity</span>
+                            <span class="text-body-secondary">overall similarity &middot; @StatusBadge.SimilarityBandLabel(result.OverallSimilarityPercent)</span>
+                        </div>
+                        <div class="stat-bar mb-3" aria-hidden="true">
+                            <div class="stat-bar-fill @StatusBadge.SimilarityBarClass(result.OverallSimilarityPercent)" data-bar-width="@result.OverallSimilarityPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)"></div>
                         </div>
                         @if (result.CommonTextPercent > 0)
                         {
@@ -105,7 +108,7 @@
             <div class="card-header bg-transparent"><h2 class="h6 mb-0">Matched documents</h2></div>
             @if (analysed.Matches.Count == 0)
             {
-                <div class="card-body text-body-secondary">No other submission shares text with this one.</div>
+                <div class="card-body empty-state">No other submission shares text with this one.</div>
             }
             else
             {
@@ -117,7 +120,7 @@
                                 <th scope="col">Written by</th>
                                 <th scope="col">Files</th>
                                 <th scope="col" class="text-end">Passages</th>
-                                <th scope="col" class="text-end" title="How much of this submission lies in passages found in that source">Share of submission</th>
+                                <th scope="col" title="How much of this submission lies in passages found in that source">Share of submission</th>
                                 <th scope="col"><span class="visually-hidden">Actions</span></th>
                             </tr>
                         </thead>
@@ -152,7 +155,7 @@
                                         @match.MatchedFileName
                                     </td>
                                     <td class="text-end">@match.PassageCount</td>
-                                    <td class="text-end">@StatusBadge.Similarity(match.SimilarityPercent)</td>
+                                    <td>@StatusBadge.SimilarityBar(match.SimilarityPercent)</td>
                                     <td class="text-end">
                                         <a class="btn btn-sm btn-primary" asp-action="Compare" asp-route-id="@match.MatchId">Compare</a>
                                     </td>
@@ -182,7 +185,7 @@
                             <th scope="col">Later submission</th>
                             <th scope="col">Written by</th>
                             <th scope="col">Submitted</th>
-                            <th scope="col" class="text-end">Share of it</th>
+                            <th scope="col">Share of it</th>
                             <th scope="col"><span class="visually-hidden">Actions</span></th>
                         </tr>
                     </thead>
@@ -208,7 +211,7 @@
                                     }
                                 </td>
                                 <td class="small">@later.SubmittedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
-                                <td class="text-end">@StatusBadge.Similarity(later.SimilarityPercent)</td>
+                                <td>@StatusBadge.SimilarityBar(later.SimilarityPercent)</td>
                                 <td class="text-end">
                                     <a class="btn btn-sm btn-outline-primary" asp-action="Compare" asp-route-id="@later.MatchId">Compare</a>
                                 </td>

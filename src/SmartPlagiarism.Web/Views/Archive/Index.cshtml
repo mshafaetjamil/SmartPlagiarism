@@ -223,7 +223,7 @@
                     @if (Model.Documents.Items.Count == 0)
                     {
                         <tr>
-                            <td colspan="7" class="text-center text-body-secondary py-4">
+                            <td colspan="7" class="empty-state">
                                 @(Model.Overview.TotalDocuments == 0 ? "The archive is empty. Import a ZIP to start it." : "No documents match these filters.")
                             </td>
                         </tr>

@@ -13,15 +13,29 @@ namespace SmartPlagiarism.Infrastructure.Reports;
 /// <summary>
 /// The originality report as a PDF, laid out with QuestPDF.
 ///
-/// Text is set in Lato, falling back to the embedded Noto Sans Bengali for any
-/// character Lato lacks, so a Bangla title, name or quotation renders the same on
-/// every server. The similarity colour comes from <see cref="SimilarityBands"/>,
-/// exactly as on the web pages.
+/// Text is set in Lato, and headings in Source Serif 4, falling back to the embedded
+/// Noto Sans Bengali for any character those lack, so a Bangla title, name or
+/// quotation renders the same on every server. The similarity colour comes from
+/// <see cref="SimilarityBands"/>, exactly as on the web pages; the colours themselves
+/// are the ones in the site's theme.css.
 /// </summary>
 public sealed class QuestPdfReportGenerator : IReportGenerator
 {
     private const string LatinFont = "Lato";
     private const string BanglaFont = "Noto Sans Bengali";
+    private const string HeadingFont = "Source Serif 4";
+
+    private static readonly Color Indigo = Color.FromHex("#2E2A6B");
+    private static readonly Color GoldRule = Color.FromHex("#B8860B");
+    private static readonly Color GoldLabel = Color.FromHex("#8A6A10");
+
+    private static readonly Color HighInk = Color.FromHex("#B42318");
+    private static readonly Color HighWash = Color.FromHex("#FDE7E7");
+    private static readonly Color ModerateBar = Color.FromHex("#D9961F");
+    private static readonly Color ModerateInk = Color.FromHex("#8A5A0B");
+    private static readonly Color ModerateWash = Color.FromHex("#FDF1DC");
+    private static readonly Color LowInk = Color.FromHex("#136C3A");
+    private static readonly Color LowWash = Color.FromHex("#E3F4EA");
 
     private static readonly Lazy<bool> s_configured = new(Configure, LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -89,13 +103,14 @@ public sealed class QuestPdfReportGenerator : IReportGenerator
 
     private static void ComposeHeader(IContainer container, SubmissionReportData data)
     {
-        container.BorderBottom(1.5f).BorderColor(Colors.Blue.Darken3).PaddingBottom(8).Row(row =>
+        container.BorderBottom(1.5f).BorderColor(GoldRule).PaddingBottom(8).Row(row =>
         {
             row.RelativeItem().Column(column =>
             {
-                column.Item().Text(data.InstitutionName).FontSize(15).Bold().FontColor(Colors.Blue.Darken3);
+                column.Item().DefaultTextStyle(style => Heading(style).FontSize(15)).Text(data.InstitutionName);
                 column.Item().Text(data.DepartmentName).FontColor(Colors.Grey.Darken1);
-                column.Item().PaddingTop(4).Text("Originality Report").FontSize(12).SemiBold();
+                column.Item().PaddingTop(6).Text("ORIGINALITY REPORT").FontSize(8).SemiBold().LetterSpacing(0.08f).FontColor(GoldLabel);
+                column.Item().DefaultTextStyle(style => Heading(style).FontSize(13)).Text(data.Title);
             });
 
             row.ConstantItem(170).AlignRight().Column(column =>
@@ -209,8 +224,8 @@ public sealed class QuestPdfReportGenerator : IReportGenerator
 
                     foreach (var warning in file.Warnings)
                     {
-                        table.Cell().ColumnSpan(3).Background(Colors.Amber.Lighten5).PaddingHorizontal(6).PaddingVertical(3)
-                            .Text(warning).FontSize(8).Italic().FontColor(Colors.Amber.Darken4);
+                        table.Cell().ColumnSpan(3).Background(ModerateWash).PaddingHorizontal(6).PaddingVertical(3)
+                            .Text(warning).FontSize(8).Italic().FontColor(ModerateInk);
                     }
                 }
             });
@@ -259,7 +274,9 @@ public sealed class QuestPdfReportGenerator : IReportGenerator
                 {
                     table.Cell().Element(BodyCell).Text(match.Source);
                     table.Cell().Element(BodyCell).Text(match.OwnFileName);
-                    table.Cell().Element(BodyCell).AlignRight().Text(match.PassageCount.ToString(CultureInfo.InvariantCulture));
+
+                    // A byte-for-byte copy matches as a whole file, with no passages to count.
+                    table.Cell().Element(BodyCell).AlignRight().Text(match.PassageCount == 0 ? "-" : match.PassageCount.ToString(CultureInfo.InvariantCulture));
                     table.Cell().Element(BodyCell).AlignRight().Text($"{match.SimilarityPercent:0.00}%")
                         .SemiBold().FontColor(BandStyle(match.SimilarityPercent).Ink);
                 }
@@ -318,8 +335,8 @@ public sealed class QuestPdfReportGenerator : IReportGenerator
 
             var (text, color) = data.ReviewStatus switch
             {
-                SubmissionStatus.Approved => ("Approved", Colors.Green.Darken2),
-                SubmissionStatus.Rejected => ("Rejected", Colors.Red.Darken2),
+                SubmissionStatus.Approved => ("Approved", LowInk),
+                SubmissionStatus.Rejected => ("Rejected", HighInk),
                 _ => ("Pending review", Colors.Grey.Darken1),
             };
 
@@ -352,7 +369,7 @@ public sealed class QuestPdfReportGenerator : IReportGenerator
 
     private static void Quotation(IContainer container, string caption, string quote)
     {
-        container.Background(Colors.Grey.Lighten4).BorderLeft(2).BorderColor(Colors.Amber.Darken1).Padding(6).Column(column =>
+        container.Background(Colors.Grey.Lighten4).BorderLeft(2).BorderColor(ModerateBar).Padding(6).Column(column =>
         {
             column.Item().Text(caption).FontSize(7).FontColor(Colors.Grey.Darken1);
             column.Item().Text(string.IsNullOrEmpty(quote) ? "(text unavailable)" : quote).FontSize(9);
@@ -362,9 +379,9 @@ public sealed class QuestPdfReportGenerator : IReportGenerator
     /// <summary>Colours for a score's band: text, background, and a word for it.</summary>
     private static (Color Ink, Color Wash, string Label) BandStyle(decimal percent) => SimilarityBands.Classify(percent) switch
     {
-        SimilarityBand.Low => (Colors.Green.Darken2, Colors.Green.Lighten5, "low"),
-        SimilarityBand.Moderate => (Colors.Amber.Darken3, Colors.Amber.Lighten5, "moderate"),
-        _ => (Colors.Red.Darken2, Colors.Red.Lighten5, "high"),
+        SimilarityBand.Low => (LowInk, LowWash, "low"),
+        SimilarityBand.Moderate => (ModerateInk, ModerateWash, "moderate"),
+        _ => (HighInk, HighWash, "high"),
     };
 
     private static IContainer Box(IContainer container) =>
@@ -374,7 +391,10 @@ public sealed class QuestPdfReportGenerator : IReportGenerator
         style.FontSize(7).FontColor(Colors.Grey.Darken1).LetterSpacing(0.05f));
 
     private static IContainer SectionTitle(IContainer container) => container.PaddingBottom(4).DefaultTextStyle(style =>
-        style.FontSize(11).SemiBold().FontColor(Colors.Blue.Darken3));
+        Heading(style).FontSize(11));
+
+    private static TextStyle Heading(TextStyle style) =>
+        style.FontFamily(HeadingFont, BanglaFont).SemiBold().FontColor(Indigo);
 
     private static IContainer HeaderCell(IContainer container) => container
         .BorderBottom(1).BorderColor(Colors.Grey.Darken1).PaddingVertical(4).PaddingHorizontal(6)

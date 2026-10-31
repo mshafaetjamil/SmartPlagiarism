@@ -18,6 +18,15 @@
 
     string? AriaSort(ReviewSortField field) =>
         filter.Sort != field ? null : filter.Desc ? "descending" : "ascending";
+
+    (ReviewSortField Field, string Label)[] sortOptions =
+    [
+        (ReviewSortField.SubmittedAt, "Date submitted"),
+        (ReviewSortField.Similarity, "Similarity"),
+        (ReviewSortField.Title, "Title"),
+        (ReviewSortField.Student, "Student"),
+        (ReviewSortField.Course, "Course"),
+    ];
 }
 
 <div class="container py-4">
@@ -26,11 +35,11 @@
         <span class="text-body-secondary small">@results.TotalCount submission(s)</span>
     </div>
 
-    <form method="get" asp-action="Index" class="card border-0 shadow-sm mb-3">
+    <form method="get" asp-action="Index" class="card mb-3">
         <div class="card-body">
             <div asp-validation-summary="All" class="alert alert-warning small"></div>
             <div class="row g-2 align-items-end">
-                <div class="col-sm-6 col-lg-2">
+                <div class="col-sm-6 col-lg-3">
                     <label class="form-label small mb-1" for="CourseId">Course</label>
                     <select id="CourseId" name="CourseId" class="form-select form-select-sm">
                         <option value="">All courses</option>
@@ -40,7 +49,7 @@
                         }
                     </select>
                 </div>
-                <div class="col-sm-6 col-lg-2">
+                <div class="col-sm-6 col-lg-3">
                     <label class="form-label small mb-1" for="SemesterId">Semester</label>
                     <select id="SemesterId" name="SemesterId" class="form-select form-select-sm">
                         <option value="">All semesters</option>
@@ -50,7 +59,7 @@
                         }
                     </select>
                 </div>
-                <div class="col-sm-6 col-lg-2">
+                <div class="col-sm-6 col-lg-3">
                     <label class="form-label small mb-1" for="Status">Review</label>
                     <select id="Status" name="Status" class="form-select form-select-sm">
                         <option value="">Any</option>
@@ -60,7 +69,7 @@
                         }
                     </select>
                 </div>
-                <div class="col-sm-6 col-lg-2">
+                <div class="col-sm-6 col-lg-3">
                     <label class="form-label small mb-1" for="Analysis">Analysis</label>
                     <select id="Analysis" name="Analysis" class="form-select form-select-sm">
                         <option value="">Any</option>
@@ -80,10 +89,23 @@
                     <input id="MaxSimilarity" name="MaxSimilarity" type="number" min="0" max="100" step="1"
                            value="@filter.MaxSimilarity" class="form-control form-control-sm" />
                 </div>
-                <div class="col-lg-2 d-flex gap-2">
-                    @* The current sort survives a filter change; the page does not. *@
-                    <input type="hidden" name="Sort" value="@filter.Sort" />
-                    <input type="hidden" name="Desc" value="@filter.Desc.ToString().ToLowerInvariant()" />
+                <div class="col-sm-6 col-lg-3">
+                    <label class="form-label small mb-1" for="Sort">Sort by</label>
+                    <select id="Sort" name="Sort" class="form-select form-select-sm">
+                        @foreach (var option in sortOptions)
+                        {
+                            <option value="@option.Field" selected="@(filter.Sort == option.Field)">@option.Label</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <label class="form-label small mb-1" for="Desc">Order</label>
+                    <select id="Desc" name="Desc" class="form-select form-select-sm">
+                        <option value="true" selected="@filter.Desc">Highest or newest first</option>
+                        <option value="false" selected="@(!filter.Desc)">Lowest or oldest first</option>
+                    </select>
+                </div>
+                <div class="col-lg-4 d-flex gap-2">
                     <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filter</button>
                     <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Reset</a>
                 </div>
@@ -94,33 +116,27 @@
     @if (results.Items.Count == 0)
     {
         <div class="card border-0 shadow-sm">
-            <div class="card-body text-center text-body-secondary py-5">No submissions match these filters.</div>
+            <div class="card-body empty-state">No submissions match these filters.</div>
         </div>
     }
     else
     {
         <div class="card border-0 shadow-sm">
             <div class="table-responsive">
-                <table class="table table-hover mb-0 align-middle">
+                <table class="table mb-0 align-middle">
                     <thead>
                         <tr>
                             <th scope="col" aria-sort="@AriaSort(ReviewSortField.Title)">
-                                <a asp-action="Index" asp-all-route-data="filter.RouteValues(sort: ReviewSortField.Title)">Title@(SortIndicator(ReviewSortField.Title))</a>
-                            </th>
-                            <th scope="col" aria-sort="@AriaSort(ReviewSortField.Student)">
-                                <a asp-action="Index" asp-all-route-data="filter.RouteValues(sort: ReviewSortField.Student)">Student@(SortIndicator(ReviewSortField.Student))</a>
+                                <a asp-action="Index" asp-all-route-data="filter.RouteValues(sort: ReviewSortField.Title)">Submission@(SortIndicator(ReviewSortField.Title))</a>
                             </th>
                             <th scope="col" aria-sort="@AriaSort(ReviewSortField.Course)">
                                 <a asp-action="Index" asp-all-route-data="filter.RouteValues(sort: ReviewSortField.Course)">Course@(SortIndicator(ReviewSortField.Course))</a>
                             </th>
-                            <th scope="col" aria-sort="@AriaSort(ReviewSortField.SubmittedAt)">
-                                <a asp-action="Index" asp-all-route-data="filter.RouteValues(sort: ReviewSortField.SubmittedAt)">Submitted@(SortIndicator(ReviewSortField.SubmittedAt))</a>
-                            </th>
-                            <th scope="col">Analysis</th>
-                            <th scope="col">Review</th>
-                            <th scope="col" class="text-end" aria-sort="@AriaSort(ReviewSortField.Similarity)">
+                            <th scope="col" aria-sort="@AriaSort(ReviewSortField.Similarity)">
                                 <a asp-action="Index" asp-all-route-data="filter.RouteValues(sort: ReviewSortField.Similarity)">Similarity@(SortIndicator(ReviewSortField.Similarity))</a>
                             </th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="text-end">Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -128,24 +144,24 @@
                         {
                             <tr>
                                 <td>
-                                    <a asp-action="Submission" asp-route-id="@submission.Id">@submission.Title</a>
+                                    <a class="list-title" asp-action="Submission" asp-route-id="@submission.Id">@submission.Title</a>
+                                    <span class="list-meta" title="@StatusBadge.FullTime(submission.SubmittedAtUtc)">
+                                        @submission.StudentName &middot; @submission.StudentNumber &middot; @StatusBadge.ShortDate(submission.SubmittedAtUtc)
+                                    </span>
                                     @if (submission.MatchCount > 0)
                                     {
-                                        <span class="d-block small text-body-secondary">@submission.MatchCount matched source(s)</span>
+                                        <span class="list-meta">@submission.MatchCount matched source(s)</span>
                                     }
                                 </td>
-                                <td>
-                                    @submission.StudentName
-                                    <span class="d-block small text-body-secondary">@submission.StudentNumber</span>
-                                </td>
-                                <td>
+                                <td class="text-nowrap">
                                     @submission.CourseCode
-                                    <span class="d-block small text-body-secondary">@submission.SemesterName</span>
+                                    <span class="list-meta">@submission.SemesterName</span>
                                 </td>
-                                <td>@submission.SubmittedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
-                                <td><span class="badge @StatusBadge.For(submission.AnalysisStatus)">@submission.AnalysisStatus</span></td>
-                                <td><span class="badge @StatusBadge.For(submission.Status)">@StatusBadge.Label(submission.Status)</span></td>
-                                <td class="text-end">@StatusBadge.Similarity(submission.OverallSimilarityPercent)</td>
+                                <td>@StatusBadge.SimilarityBar(submission.OverallSimilarityPercent)</td>
+                                <td>@StatusBadge.Status(submission.AnalysisStatus, submission.Status)</td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-secondary" asp-action="Submission" asp-route-id="@submission.Id">Review</a>
+                                </td>
                             </tr>
                         }
                     </tbody>

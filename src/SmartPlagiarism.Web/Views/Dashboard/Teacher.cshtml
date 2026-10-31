@@ -3,6 +3,13 @@
 @model SmartPlagiarism.Core.DTOs.Dashboards.TeacherDashboardDto
 @{
     ViewData["Title"] = "Teacher dashboard";
+
+    StatTileViewModel[] tiles =
+    [
+        new("Pending review", Model.PendingReviewCount.ToString()),
+        new("Analysed submissions", Model.AnalyzedSubmissionCount.ToString()),
+        StatTileViewModel.Similarity("Average similarity", Model.AverageSimilarityPercent),
+    ];
 }
 
 <div class="container py-4">
@@ -10,39 +17,17 @@
 
     <partial name="_StatusMessage" />
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="text-body-secondary small text-uppercase">Pending review</div>
-                    <div class="display-6">@Model.PendingReviewCount</div>
-                </div>
+    <div class="row g-3 mb-3">
+        @foreach (var tile in tiles)
+        {
+            <div class="col-md-4">
+                <partial name="_StatTile" model="tile" />
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="text-body-secondary small text-uppercase">Analysed submissions</div>
-                    <div class="display-6">@Model.AnalyzedSubmissionCount</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="text-body-secondary small text-uppercase">Average similarity</div>
-                    <div class="display-6">
-                        @(Model.AverageSimilarityPercent.HasValue
-                            ? $"{Model.AverageSimilarityPercent.Value:0.00}%"
-                            : "-")
-                    </div>
-                </div>
-            </div>
-        </div>
+        }
     </div>
 
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-transparent">
+    <div class="card">
+        <div class="card-header">
             <div class="d-flex justify-content-between align-items-center">
                 <h2 class="h6 mb-0">Recent submissions</h2>
                 <a class="small" asp-controller="Review" asp-action="Index">All submissions &rarr;</a>
@@ -50,24 +35,21 @@
         </div>
         @if (Model.RecentSubmissions.Count == 0)
         {
-            <div class="card-body text-body-secondary">
+            <div class="card-body empty-state">
                 No submissions have been made yet.
             </div>
         }
         else
         {
             <div class="table-responsive">
-                <table class="table table-hover mb-0 align-middle">
+                <table class="table mb-0 align-middle">
                     <thead>
                         <tr>
-                            <th scope="col">Title</th>
-                            <th scope="col">Student</th>
+                            <th scope="col">Submission</th>
                             <th scope="col">Course</th>
-                            <th scope="col">Submitted</th>
-                            <th scope="col">Analysis</th>
-                            <th scope="col">Review</th>
-                            <th scope="col" class="text-end">Similarity</th>
-                            <th scope="col"><span class="visually-hidden">Actions</span></th>
+                            <th scope="col">Similarity</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="text-end">Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -75,29 +57,22 @@
                         {
                             <tr>
                                 <td>
-                                    <a asp-controller="Review" asp-action="Submission" asp-route-id="@submission.SubmissionId">@submission.Title</a>
-                                </td>
-                                <td>
-                                    @submission.StudentName
-                                    <span class="text-body-secondary small d-block">@submission.StudentNumber</span>
+                                    <a class="list-title" asp-controller="Review" asp-action="Submission" asp-route-id="@submission.SubmissionId">@submission.Title</a>
+                                    <span class="list-meta" title="@StatusBadge.FullTime(submission.SubmittedAtUtc)">
+                                        @submission.StudentName &middot; @submission.StudentNumber &middot; @StatusBadge.ShortDate(submission.SubmittedAtUtc)
+                                    </span>
                                 </td>
                                 <td>@submission.CourseCode</td>
-                                <td>@submission.SubmittedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                                <td>@StatusBadge.SimilarityBar(submission.OverallSimilarityPercent)</td>
                                 <td>
-                                    <span class="badge @StatusBadge.For(submission.AnalysisStatus)"
-                                          title="@submission.AnalysisError">@submission.AnalysisStatus</span>
+                                    @StatusBadge.Status(submission.AnalysisStatus, submission.Status)
                                     @if (!string.IsNullOrWhiteSpace(submission.AnalysisError))
                                     {
                                         <span class="d-block small text-danger">@submission.AnalysisError</span>
                                     }
                                 </td>
-                                <td>
-                                    <span class="badge @StatusBadge.For(submission.Status)">@StatusBadge.Label(submission.Status)</span>
-                                </td>
-                                <td class="text-end">
-                                    @StatusBadge.Similarity(submission.OverallSimilarityPercent)
-                                </td>
-                                <td class="text-end">
+                                <td class="text-end text-nowrap">
+                                    <a class="btn btn-sm btn-outline-secondary" asp-controller="Review" asp-action="Submission" asp-route-id="@submission.SubmissionId">Review</a>
                                     @if (submission.AnalysisStatus is AnalysisStatus.Completed or AnalysisStatus.Failed)
                                     {
                                         <form method="post" asp-controller="Analysis" asp-action="Rerun"

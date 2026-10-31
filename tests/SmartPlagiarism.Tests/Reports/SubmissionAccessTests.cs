@@ -164,7 +164,7 @@ public class SubmissionAccessTests
         var text = PdfText(report!.Content);
 
         report.ContentType.Should().Be("application/pdf");
-        text.Should().Contain("Originality Report").And.Contain("Overall similarity").And.Contain("high");
+        text.Should().Contain("ORIGINALITY").And.Contain("Overall similarity").And.Contain("high");
         text.Should().Contain("Rejected").And.Contain("Copied from another submission.");
         text.Should().Contain("copy.docx").And.Contain("Top matched passages");
     }

@@ -4,14 +4,27 @@
 @{
     ViewData["Title"] = "Statistics";
 
-    // A bar's width, as a percentage of the largest value in its own chart;
-    // site.js applies it, since the Content-Security-Policy allows no inline styles.
-    string Width(int value, int max) =>
-        (max == 0 ? 0 : value * 100.0 / max).ToString("0.#", CultureInfo.InvariantCulture);
-
     var busiestMonth = Model.SubmissionsByMonth.Count == 0 ? 0 : Model.SubmissionsByMonth.Max(month => month.Count);
-    var mostFiles = Model.ExtractionMethods.Count == 0 ? 0 : Model.ExtractionMethods.Max(method => method.FileCount);
-    var largestBand = Model.SimilarityBands.Count == 0 ? 0 : Model.SimilarityBands.Max(band => band.Count);
+    var totalBanded = Model.SimilarityBands.Sum(band => band.Count);
+    var totalFiles = Model.ExtractionMethods.Sum(method => method.FileCount);
+
+    StatTileViewModel[] tiles =
+    [
+        new("Submissions", Model.TotalSubmissions.ToString()),
+        new("Analysed", Model.AnalysedSubmissions.ToString()),
+        StatTileViewModel.Similarity("Average similarity", Model.AverageSimilarityPercent is { } average ? (decimal)Math.Round(average, 2) : null),
+    ];
+
+    // SVG geometry is written out in invariant numbers: a culture's decimal comma
+    // would break the attribute.
+    string Number(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    const int MonthSlot = 40;
+    const int BarBaseline = 118;
+    const int TallestBar = 96;
+    double BarHeight(int count) => busiestMonth == 0 || count == 0 ? 0 : Math.Max(2, count * (double)TallestBar / busiestMonth);
+
+    var ringOffset = 0d;
 }
 
 <div class="container py-4">
@@ -20,101 +33,127 @@
     <partial name="_StatusMessage" />
 
     <div class="row g-3 mb-3">
-        <div class="col-md-4">
-            <div class="card h-100 border-0 shadow-sm"><div class="card-body">
-                <div class="text-body-secondary small text-uppercase">Submissions</div>
-                <div class="display-6">@Model.TotalSubmissions</div>
-            </div></div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 border-0 shadow-sm"><div class="card-body">
-                <div class="text-body-secondary small text-uppercase">Analysed</div>
-                <div class="display-6">@Model.AnalysedSubmissions</div>
-            </div></div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 border-0 shadow-sm"><div class="card-body">
-                <div class="text-body-secondary small text-uppercase">Average similarity</div>
-                <div class="display-6">
-                    @StatusBadge.Similarity(Model.AverageSimilarityPercent is { } average ? (decimal)Math.Round(average, 2) : null)
-                </div>
-            </div></div>
-        </div>
+        @foreach (var tile in tiles)
+        {
+            <div class="col-md-4">
+                <partial name="_StatTile" model="tile" />
+            </div>
+        }
     </div>
 
     <div class="row g-3 mb-3">
-        <div class="col-lg-7">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-transparent"><h2 class="h6 mb-0">Submissions over the last @Model.SubmissionsByMonth.Count months</h2></div>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 mb-0">Submissions over the last @Model.SubmissionsByMonth.Count months</h2></div>
                 <div class="card-body">
-                    <table class="table table-sm table-borderless mb-0 align-middle">
-                        <caption class="visually-hidden">Submissions and average similarity per month</caption>
-                        <thead class="visually-hidden">
-                            <tr><th scope="col">Month</th><th scope="col">Submissions</th><th scope="col">Average similarity</th></tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var month in Model.SubmissionsByMonth)
-                            {
+                    <svg class="chart-svg" viewBox="0 0 @(Model.SubmissionsByMonth.Count * MonthSlot) 136" aria-hidden="true">
+                        @for (var index = 0; index < Model.SubmissionsByMonth.Count; index++)
+                        {
+                            var month = Model.SubmissionsByMonth[index];
+                            var height = BarHeight(month.Count);
+                            var centre = index * MonthSlot + MonthSlot / 2;
+                            <g>
+                                <rect class="chart-bar" x="@(centre - 12)" y="@Number(BarBaseline - height)" width="24" height="@Number(height)" rx="2" />
+                                <text class="chart-count" x="@centre" y="@Number(BarBaseline - height - 4)" text-anchor="middle">@month.Count</text>
+                                <text class="chart-label" x="@centre" y="132" text-anchor="middle">@(new DateTime(month.Year, month.Month, 1).ToString("MMM", CultureInfo.InvariantCulture))</text>
+                            </g>
+                        }
+                    </svg>
+
+                    <details class="chart-details mt-2">
+                        <summary>Figures by month</summary>
+                        <table class="table table-sm table-borderless mb-0 mt-1 align-middle">
+                            <caption class="visually-hidden">Submissions and average similarity per month</caption>
+                            <thead>
                                 <tr>
-                                    <th scope="row" class="fw-normal small text-nowrap col-w-5-5">
-                                        @(new DateTime(month.Year, month.Month, 1).ToString("MMM yyyy", CultureInfo.InvariantCulture))
-                                    </th>
-                                    <td>
-                                        <div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill bg-primary" data-bar-width="@Width(month.Count, busiestMonth)"></div></div>
-                                    </td>
-                                    <td class="text-end small col-w-3">@month.Count</td>
-                                    <td class="text-end col-w-5-5">
-                                        @StatusBadge.Similarity(month.AverageSimilarityPercent is { } monthly ? (decimal)Math.Round(monthly, 2) : null)
-                                    </td>
+                                    <th scope="col">Month</th>
+                                    <th scope="col" class="text-end">Submissions</th>
+                                    <th scope="col" class="text-end">Average similarity</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @foreach (var month in Model.SubmissionsByMonth)
+                                {
+                                    <tr>
+                                        <th scope="row" class="fw-normal small text-nowrap">
+                                            @(new DateTime(month.Year, month.Month, 1).ToString("MMM yyyy", CultureInfo.InvariantCulture))
+                                        </th>
+                                        <td class="text-end small">@month.Count</td>
+                                        <td class="text-end">
+                                            @StatusBadge.Similarity(month.AverageSimilarityPercent is { } monthly ? (decimal)Math.Round(monthly, 2) : null)
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </details>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-5 d-flex flex-column gap-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent"><h2 class="h6 mb-0">Similarity bands</h2></div>
-                <div class="card-body">
-                    <table class="table table-sm table-borderless mb-0 align-middle">
-                        <tbody>
+        <div class="col-md-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 mb-0">Similarity bands</h2></div>
+                @if (totalBanded == 0)
+                {
+                    <div class="card-body empty-state">Nothing has been analysed yet.</div>
+                }
+                else
+                {
+                    <div class="card-body">
+                        <div class="band-stack mb-3" aria-hidden="true">
                             @foreach (var band in Model.SimilarityBands)
                             {
-                                var (label, colour) = band.Band switch
-                                {
-                                    SimilarityBand.Low => ("Below 20%", "bg-success"),
-                                    SimilarityBand.Moderate => ("20% to 50%", "bg-warning"),
-                                    _ => ("Above 50%", "bg-danger"),
-                                };
-                                <tr>
-                                    <th scope="row" class="fw-normal small text-nowrap col-w-6">@label</th>
-                                    <td><div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill @colour" data-bar-width="@Width(band.Count, largestBand)"></div></div></td>
-                                    <td class="text-end small col-w-3">@band.Count</td>
-                                </tr>
+                                <div class="@BandFill(band.Band)" data-bar-width="@StatusBadge.BarWidth(band.Count, totalBanded)"></div>
                             }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent"><h2 class="h6 mb-0">How files were read</h2></div>
-                <div class="card-body">
-                    <table class="table table-sm table-borderless mb-0 align-middle">
-                        <tbody>
-                            @foreach (var method in Model.ExtractionMethods)
+                        </div>
+                        <ul class="chart-legend">
+                            @foreach (var band in Model.SimilarityBands)
                             {
-                                <tr>
-                                    <th scope="row" class="fw-normal small text-nowrap col-w-10">@StatusBadge.Label(method.Method)</th>
-                                    <td><div class="stat-bar" aria-hidden="true"><div class="stat-bar-fill bg-info" data-bar-width="@Width(method.FileCount, mostFiles)"></div></div></td>
-                                    <td class="text-end small col-w-3">@method.FileCount</td>
-                                </tr>
+                                <li>
+                                    <span class="legend-dot @BandFill(band.Band)" aria-hidden="true"></span>
+                                    <span>@BandLabel(band.Band)</span>
+                                    <span class="chart-legend-count">@band.Count</span>
+                                </li>
                             }
-                        </tbody>
-                    </table>
-                </div>
+                        </ul>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-header"><h2 class="h6 mb-0">How files were read</h2></div>
+                @if (totalFiles == 0)
+                {
+                    <div class="card-body empty-state">No file has been read yet.</div>
+                }
+                else
+                {
+                    <div class="card-body">
+                        <svg class="ring-chart d-block mx-auto mb-3" viewBox="0 0 36 36" aria-hidden="true">
+                            @for (var index = 0; index < Model.ExtractionMethods.Count; index++)
+                            {
+                                var share = Model.ExtractionMethods[index].FileCount * 100d / totalFiles;
+                                <circle class="ring-segment chart-tone-@index" cx="18" cy="18" r="15" pathLength="100"
+                                        stroke-dasharray="@Number(share) 100" stroke-dashoffset="@Number(-ringOffset)"
+                                        transform="rotate(-90 18 18)" />
+                                ringOffset += share;
+                            }
+                        </svg>
+                        <ul class="chart-legend">
+                            @for (var index = 0; index < Model.ExtractionMethods.Count; index++)
+                            {
+                                <li>
+                                    <span class="legend-dot chart-tone-@index" aria-hidden="true"></span>
+                                    <span>@StatusBadge.Label(Model.ExtractionMethods[index].Method)</span>
+                                    <span class="chart-legend-count">@Model.ExtractionMethods[index].FileCount</span>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
             </div>
         </div>
     </div>
@@ -123,7 +162,7 @@
         <div class="card-header bg-transparent"><h2 class="h6 mb-0">Failed analyses</h2></div>
         @if (Model.FailedAnalyses.TotalCount == 0)
         {
-            <div class="card-body text-body-secondary">No analysis has failed.</div>
+            <div class="card-body empty-state">No analysis has failed.</div>
         }
         else
         {
@@ -161,3 +200,19 @@
 
     <partial name="_Pager" model="PagerViewModel.For(nameof(StatisticsController.Index), Model.FailedAnalyses)" />
 </div>
+
+@functions {
+    private static string BandFill(SimilarityBand band) => band switch
+    {
+        SimilarityBand.Low => "bg-success",
+        SimilarityBand.Moderate => "bg-warning",
+        _ => "bg-danger",
+    };
+
+    private static string BandLabel(SimilarityBand band) => band switch
+    {
+        SimilarityBand.Low => "Below 20%",
+        SimilarityBand.Moderate => "20% to 50%",
+        _ => "Above 50%",
+    };
+}
